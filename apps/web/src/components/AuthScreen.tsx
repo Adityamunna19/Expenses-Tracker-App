@@ -10,6 +10,7 @@ export const AuthScreen = () => {
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [focusedField, setFocusedField] = useState<string | null>(null);
 
   const isSignup = mode === "signup";
 
@@ -46,7 +47,7 @@ export const AuthScreen = () => {
   };
 
   return (
-    <main className="auth-shell">
+    <main className="auth-shell-new">
       <section className="auth-hero">
         <div className="auth-badge-row">
           <p className="eyebrow">Expense tracker</p>
@@ -88,69 +89,103 @@ export const AuthScreen = () => {
         </div>
       </section>
 
-      <section className="auth-panel">
-        <div className="auth-panel-top">
-          <div>
-            <p className="eyebrow">{isSignup ? "Create account" : "Welcome back"}</p>
-            <h2>{isSignup ? "Start your own ledger" : "Sign in to your workspace"}</h2>
-            <p className="auth-panel-copy">
+      <section className="auth-panel-new">
+        {/* <div className="auth-mode-tabs">
+          <button
+            type="button"
+            className={`auth-tab ${mode === "login" ? "auth-tab-active" : ""}`}
+            onClick={() => setMode("login")}
+          >
+            Sign In
+          </button>
+          <button
+            type="button"
+            className={`auth-tab ${mode === "signup" ? "auth-tab-active" : ""}`}
+            onClick={() => setMode("signup")}
+          >
+            Create Account
+          </button>
+        </div> */}
+
+        <div className="auth-content">
+          <div className="auth-header">
+            <h2>{isSignup ? "Get started with Money Cockpit" : "Welcome back"}</h2>
+            <p>
               {isSignup
-                ? "Create a personal workspace to keep your transactions, reminders, and savings view separate."
-                : "Pick up where you left off and jump straight into your private dashboard."}
+                ? "Create your account to start tracking expenses with ease"
+                : "Sign in to access your financial dashboard"}
             </p>
           </div>
 
-          <div className="auth-mode-switch" role="tablist" aria-label="Authentication modes">
-            <button
-              type="button"
-              className={mode === "login" ? "nav-chip nav-chip-active" : "nav-chip"}
-              onClick={() => setMode("login")}
-            >
-              Login
+          <form className="auth-form-new" onSubmit={handleSubmit}>
+            <div className="form-group">
+              <label htmlFor="email">Email Address</label>
+              <div className={`form-input-wrapper ${focusedField === "email" ? "focused" : ""}`}>
+                <input
+                  id="email"
+                  type="email"
+                  value={email}
+                  onChange={(event) => setEmail(event.target.value)}
+                  onFocus={() => setFocusedField("email")}
+                  onBlur={() => setFocusedField(null)}
+                  placeholder="you@example.com"
+                  required
+                />
+                <span className="form-icon">✉️</span>
+              </div>
+            </div>
+
+            <div className="form-group">
+              <label htmlFor="password">Password</label>
+              <div className={`form-input-wrapper ${focusedField === "password" ? "focused" : ""}`}>
+                <input
+                  id="password"
+                  type="password"
+                  value={password}
+                  onChange={(event) => setPassword(event.target.value)}
+                  onFocus={() => setFocusedField("password")}
+                  onBlur={() => setFocusedField(null)}
+                  placeholder={isSignup ? "At least 8 characters" : "Your password"}
+                  required
+                />
+                <span className="form-icon">🔒</span>
+              </div>
+            </div>
+
+            {error ? <div className="auth-error-banner">{error}</div> : null}
+
+            <button type="submit" className="auth-submit-btn" disabled={isSubmitting}>
+              {isSubmitting ? (
+                <>
+                  <span className="spinner"></span>
+                  {isSignup ? "Creating account..." : "Signing in..."}
+                </>
+              ) : isSignup ? (
+                "Create Account"
+              ) : (
+                "Sign In"
+              )}
             </button>
-            <button
-              type="button"
-              className={mode === "signup" ? "nav-chip nav-chip-active" : "nav-chip"}
-              onClick={() => setMode("signup")}
-            >
-              Sign up
-            </button>
+          </form>
+
+          <div className="auth-divider">
+            <span>Or continue with email</span>
           </div>
-        </div>
 
-        <form className="auth-form" onSubmit={handleSubmit}>
-          <label>
-            Email
-            <input
-              type="email"
-              value={email}
-              onChange={(event) => setEmail(event.target.value)}
-              placeholder="munna@example.com"
-            />
-          </label>
-
-          <label>
-            Password
-            <input
-              type="password"
-              value={password}
-              onChange={(event) => setPassword(event.target.value)}
-              placeholder="At least 8 characters"
-            />
-          </label>
-
-          {error ? <p className="auth-error">{error}</p> : null}
-
-          <button type="submit" className="primary-cta auth-submit" disabled={isSubmitting}>
-            {isSubmitting ? "Please wait..." : isSignup ? "Create account" : "Login"}
-          </button>
-        </form>
-
-        <div className="auth-footnote">
-          <strong>Current phase</strong>
-          <p>
-            This screen is frontend-auth for now. Next we can connect it to FastAPI with real user
-            accounts, sessions, and database-scoped records.
+          <p className="auth-footer-text">
+            {isSignup
+              ? "Already have an account? "
+              : "Don't have an account? "}
+            <button
+              type="button"
+              className="auth-link"
+              onClick={() => {
+                setMode(isSignup ? "login" : "signup");
+                setError(null);
+              }}
+            >
+              {isSignup ? "Sign in" : "Create one"}
+            </button>
           </p>
         </div>
       </section>
