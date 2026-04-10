@@ -10,8 +10,8 @@ import Savings from './components/Savings';
 import AddTransactionModal from './components/AddTransactionModal';
 import { Moon, Sun, LogOut } from 'lucide-react';
 
-// Pull the Backend URL from .env (Vercel/Local)
-const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+// Pull the Backend URL from .env (Vercel/Render)
+const API_BASE = import.meta.env.VITE_API_BASE_URL || 'https://expenses-tracker-app-backend-main.onrender.com';;
 
 function MainApp() {
   const { user, signOut } = useAuth();
@@ -136,8 +136,7 @@ function MainApp() {
 
         {currentTab === 'Debts' && <Debts transactions={transactions} darkMode={darkMode} />}
         {currentTab === 'Recoveries' && <Recoveries transactions={transactions} onSuccess={fetchData} darkMode={darkMode} />}
-        {currentTab === 'Savings' && <Savings darkMode={darkMode} API_BASE={API_BASE} headers={getHeaders()} />}
-      </main>
+        {currentTab === 'Savings' && <Savings darkMode={darkMode} API_BASE={API_BASE} headers={getHeaders()} />}        </main>
 
       {activeModal && (
         <AddTransactionModal 
