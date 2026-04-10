@@ -1,194 +1,218 @@
 import { useState, useEffect } from 'react';
-import { Target, Plus, TrendingUp } from 'lucide-react';
+import { Target, Plus, TrendingUp, Sparkles, Loader2, Check, Trash2 } from 'lucide-react';
+import toast from 'react-hot-toast'; // Import the toaster
 
 export default function Savings({ darkMode, API_BASE, headers }) {
   const [goals, setGoals] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const [isResearching, setIsResearching] = useState(false);
+  
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const [aiResult, setAiResult] = useState(null);
 
-  // Form State
   const [newGoalTitle, setNewGoalTitle] = useState('');
   const [newGoalTarget, setNewGoalTarget] = useState('');
-  
-  // State to hold the specific fund amount typed for each goal
   const [fundAmounts, setFundAmounts] = useState({});
 
   const fetchGoals = async () => {
     try {
       const response = await fetch(`${API_BASE}/goals`, { headers });
-      if (response.ok) {
-        const data = await response.json();
-        setGoals(data);
-      } else {
-        setError("Backend rejected the request.");
-      }
+      if (!response.ok) throw new Error("Failed to fetch goals from database.");
+      const data = await response.json();
+      setGoals(Array.isArray(data) ? data : []);
     } catch (err) {
-      setError("Unable to reach goals service.");
+      toast.error(err.message);
     } finally {
       setLoading(false);
     }
   };
 
-  // 🚨 THE FIX: This prevents the Infinite Loop!
   useEffect(() => {
     fetchGoals();
-  }, []); // The empty brackets mean "Only run this ONCE when the component mounts"
+  }, []);
 
-  const handleCreateGoal = async (e) => {
-    e.preventDefault();
-    if (!newGoalTitle || !newGoalTarget) return;
+  const handleResearch = async () => {
+  if (!newGoalTitle) return toast.error("Enter a product name first!");
+  setIsResearching(true);
+  
+  const loadingToast = toast.loading("Azure AI is researching...");
+  
+  try {
+    const response = await fetch(`${API_BASE}/goals/research?query=${newGoalTitle}`, { headers });
+    const data = await response.json();
 
+    // Mapping ensures target_amount is NEVER zero if price exists
+    const finalData = {
+      title: data.title || newGoalTitle,
+      target_amount: data.price || data.target_amount || 0, // Fallback chain
+      image_url: data.image_url || `https://source.unsplash.com/featured/300x300?${data.image_keyword || 'tech'}`
+    };
+
+    if (finalData.target_amount === 0) {
+      toast.error("AI found the product but couldn't verify the price.");
+    }
+
+    setAiResult(finalData);
+    setShowConfirmModal(true);
+    // ...
+  } catch (err) {
+    toast.error("Research failed.");
+  }
+};
+
+  const confirmAiGoal = async () => {
     try {
       const response = await fetch(`${API_BASE}/goals`, {
         method: 'POST',
         headers: headers,
         body: JSON.stringify({
-          title: newGoalTitle,
-          target_amount: parseFloat(newGoalTarget),
+          title: aiResult?.title,
+          target_amount: aiResult?.target_amount,
           current_amount: 0.0,
-          // Extract the user ID directly from the headers prop
-          user_id: headers['X-User-ID'] 
+          user_id: headers['X-User-ID'],
+          image_url: aiResult?.image_url
         })
       });
 
-      if (response.ok) {
-        setNewGoalTitle('');
-        setNewGoalTarget('');
-        fetchGoals(); // Refresh the list without looping
-      } else {
-        alert("Failed to create goal. Check database RLS.");
-      }
+      if (!response.ok) throw new Error("Database rejected the new goal.");
+      
+      toast.success("Goal Plotted Successfully!");
+      setNewGoalTitle('');
+      setShowConfirmModal(false);
+      fetchGoals();
     } catch (err) {
-      alert("Network error while creating goal.");
+      toast.error(err.message);
     }
   };
 
-  const handleAddFund = async (goalId) => {
-    const amountToAdd = parseFloat(fundAmounts[goalId]);
-    if (!amountToAdd || amountToAdd <= 0) return;
-
+  const handleDeleteGoal = async (goalId) => {
     try {
-      const response = await fetch(`${API_BASE}/goals/${goalId}/add`, {
-        method: 'PUT',
-        headers: headers,
-        body: JSON.stringify({ amount_to_add: amountToAdd })
+      const response = await fetch(`${API_BASE}/goals/${goalId}`, {
+        method: 'DELETE',
+        headers: headers
       });
-
-      if (response.ok) {
-        // Clear the input box for this specific goal
-        setFundAmounts({ ...fundAmounts, [goalId]: '' });
-        fetchGoals(); // Refresh the progress bars
-      } else {
-        alert("Failed to add funds.");
-      }
+      if (!response.ok) throw new Error("Could not delete. Check RLS policies.");
+      
+      toast.success("Goal Deleted");
+      fetchGoals();
     } catch (err) {
-      alert("Network error while adding funds.");
+      toast.error(err.message);
     }
   };
+
+  // --- PREVENT BLANK SCREEN: LOADING STATE ---
+  if (loading) return (
+    <div className="flex flex-col items-center justify-center py-20 animate-pulse">
+      <Loader2 className="animate-spin text-indigo-600 mb-4" size={48} />
+      <p className="font-black opacity-20 text-2xl uppercase italic">Scanning Horizons...</p>
+    </div>
+  );
 
   return (
-    <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 space-y-8">
+    <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 space-y-10 relative pb-20">
       
-      {/* Header Section */}
-      <div className={`p-8 rounded-[3rem] shadow-xl ${darkMode ? 'bg-slate-800' : 'bg-white'}`}>
-        <div className="flex items-center gap-4 mb-4">
-          <div className="p-4 bg-indigo-100 text-indigo-600 rounded-2xl">
-            <Target size={32} />
+      {/* --- AI CONFIRMATION MODAL --- */}
+      {showConfirmModal && aiResult && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-slate-950/80 backdrop-blur-md">
+          <div className={`w-full max-w-sm overflow-hidden rounded-[3rem] shadow-2xl animate-in zoom-in duration-300 ${darkMode ? 'bg-slate-900 border border-slate-700' : 'bg-white'}`}>
+            <div className="aspect-square w-full relative">
+              <img src={aiResult.image_url} alt="" className="w-full h-full object-cover" />
+              <div className="absolute inset-0 bg-gradient-to-t from-slate-900/80 via-transparent to-transparent" />
+            </div>
+            <div className="p-8 text-center -mt-10 relative">
+              <h3 className="text-2xl font-black mb-1">{aiResult.title}</h3>
+              <p className="text-3xl font-black text-indigo-500 mb-6">
+  ₹{(aiResult.target_amount || aiResult.price || 0).toLocaleString()}
+</p>
+              <div className="flex gap-3">
+                <button onClick={() => setShowConfirmModal(false)} className="flex-1 py-4 rounded-2xl font-bold bg-slate-100 dark:bg-slate-800 text-slate-500">Cancel</button>
+                <button onClick={confirmAiGoal} className="flex-1 py-4 bg-indigo-600 text-white rounded-2xl font-black shadow-lg hover:bg-indigo-700 transition-all">Confirm</button>
+              </div>
+            </div>
           </div>
+        </div>
+      )}
+
+      {/* --- INPUT HEADER --- */}
+      <div className={`p-10 rounded-[3.5rem] shadow-2xl ${darkMode ? 'bg-slate-800' : 'bg-white'}`}>
+        <div className="flex items-center gap-5 mb-8">
+          <div className="p-5 bg-indigo-600 text-white rounded-[1.5rem] shadow-xl shadow-indigo-500/30"><Target size={32} /></div>
           <div>
-            <h2 className="text-2xl font-black">Future Funds</h2>
-            <p className={`font-bold ${darkMode ? 'text-slate-400' : 'text-slate-500'}`}>Allocate cash flow to your financial goals.</p>
+            <h2 className="text-3xl font-black italic tracking-tighter uppercase">Goal Cockpit</h2>
+            <p className="text-[10px] font-black opacity-40 uppercase tracking-[0.3em]">Azure AI Research</p>
           </div>
         </div>
 
-        {error && <p className="text-red-500 font-bold mb-4">{error}</p>}
-
-        <form onSubmit={handleCreateGoal} className="flex gap-4 mt-6">
-          <input 
-            type="text" 
-            placeholder="Goal Title (e.g., Emergency Fund)" 
-            value={newGoalTitle}
-            onChange={(e) => setNewGoalTitle(e.target.value)}
-            className={`flex-2 px-6 py-4 rounded-2xl font-bold outline-none border focus:border-indigo-500 transition-all ${darkMode ? 'bg-slate-700 border-slate-600 text-white' : 'bg-slate-50 border-transparent text-slate-900'}`}
-            required
-          />
-          <input 
-            type="number" 
-            placeholder="Target Amount (₹)" 
-            value={newGoalTarget}
-            onChange={(e) => setNewGoalTarget(e.target.value)}
-            className={`flex-1 px-6 py-4 rounded-2xl font-black outline-none border focus:border-indigo-500 transition-all ${darkMode ? 'bg-slate-700 border-slate-600 text-white' : 'bg-slate-50 border-transparent text-slate-900'}`}
-            required
-          />
-          <button type="submit" className="bg-indigo-600 text-white px-8 py-4 rounded-2xl font-black shadow-lg hover:bg-indigo-700 active:scale-95 transition-all flex items-center gap-2">
-            <Plus size={20} /> Create Goal
-          </button>
-        </form>
+        <div className="flex flex-col lg:flex-row gap-5">
+          <div className="flex-[3] relative">
+            <input 
+              type="text" placeholder="What are we saving for?" value={newGoalTitle}
+              onChange={(e) => setNewGoalTitle(e.target.value)}
+              className={`w-full px-8 py-5 pr-16 rounded-3xl font-bold outline-none border-2 transition-all ${darkMode ? 'bg-slate-700 border-slate-600 text-white focus:border-indigo-500' : 'bg-slate-50 border-transparent text-slate-900 focus:border-indigo-500'}`}
+            />
+            <button
+              type="button" onClick={handleResearch} disabled={isResearching}
+              className="absolute right-3 top-1/2 -translate-y-1/2 p-3 rounded-2xl bg-indigo-600 text-white hover:bg-indigo-700 transition-all active:scale-95 disabled:opacity-50"
+            >
+              {isResearching ? <Loader2 className="animate-spin" size={20}/> : <Sparkles size={20} />}
+            </button>
+          </div>
+        </div>
       </div>
 
-      {/* Goals List */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {loading ? (
-          <p className="font-bold text-slate-400 p-4">Loading your cockpit goals...</p>
-        ) : goals.length === 0 ? (
-          <p className="font-bold text-slate-400 p-4">No goals plotted yet. Enter a destination above!</p>
+      {/* --- GOALS HERO GRID --- */}
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-10 px-2">
+        {goals.length === 0 ? (
+          <div className="col-span-full text-center py-20 font-black opacity-20 text-2xl uppercase tracking-widest">No Destinations Plotted</div>
         ) : (
           goals.map(goal => {
             const progress = Math.min((goal.current_amount / goal.target_amount) * 100, 100);
             const isCompleted = progress >= 100;
 
             return (
-              <div key={goal.id} className={`p-8 rounded-[3rem] shadow-lg border-2 ${isCompleted ? 'border-emerald-500' : 'border-transparent'} ${darkMode ? 'bg-slate-800' : 'bg-white'} flex flex-col justify-between`}>
+              <div key={goal.id} className={`group relative overflow-hidden rounded-[3.5rem] shadow-2xl border-2 transition-all duration-500 hover:-translate-y-3 ${isCompleted ? 'border-emerald-500' : 'border-transparent'} ${darkMode ? 'bg-slate-800' : 'bg-white'}`}>
                 
-                <div>
-                  <div className="flex justify-between items-start mb-6">
-                    <h3 className="text-xl font-black">{goal.title}</h3>
-                    <div className={`px-4 py-2 rounded-xl font-bold text-sm ${isCompleted ? 'bg-emerald-100 text-emerald-700' : 'bg-indigo-100 text-indigo-700'}`}>
-                      {progress.toFixed(1)}% Funded
-                    </div>
-                  </div>
+                <button 
+                  onClick={() => handleDeleteGoal(goal.id)}
+                  className="absolute top-6 left-6 z-20 p-3.5 bg-white/10 backdrop-blur-md text-white rounded-2xl opacity-0 group-hover:opacity-100 transition-all hover:bg-rose-500 shadow-xl"
+                >
+                  <Trash2 size={20} />
+                </button>
 
-                  <div className="space-y-2 mb-8">
-                    <div className="flex justify-between font-bold text-sm">
-                      <span className={darkMode ? 'text-slate-400' : 'text-slate-500'}>Current: ₹{goal.current_amount.toLocaleString()}</span>
-                      <span className={darkMode ? 'text-slate-400' : 'text-slate-500'}>Target: ₹{goal.target_amount.toLocaleString()}</span>
-                    </div>
-                    {/* Progress Bar */}
-                    <div className={`w-full h-4 rounded-full overflow-hidden ${darkMode ? 'bg-slate-700' : 'bg-slate-100'}`}>
-                      <div 
-                        className={`h-full transition-all duration-1000 ease-out ${isCompleted ? 'bg-emerald-500' : 'bg-indigo-600'}`}
-                        style={{ width: `${progress}%` }}
-                      ></div>
-                    </div>
+                <div className="relative aspect-[4/3] w-full overflow-hidden bg-slate-200 dark:bg-slate-900">
+                  <img 
+                    src={goal.image_url || "https://images.unsplash.com/photo-1579621970563-ebec7560ff3e?q=80&w=500"} 
+                    alt="" className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" 
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
+                  <div className={`absolute top-6 right-6 px-4 py-2 rounded-2xl font-black text-[10px] tracking-widest shadow-xl backdrop-blur-md ${isCompleted ? 'bg-emerald-500 text-white' : 'bg-white/90 text-slate-900'}`}>
+                    {progress.toFixed(0)}% FUNDED
                   </div>
                 </div>
 
-                {/* Add Funds Action */}
-                {!isCompleted && (
-                  <div className="flex gap-3">
-                    <input 
-                      type="number" 
-                      placeholder="Add Amount"
-                      value={fundAmounts[goal.id] || ''}
-                      onChange={(e) => setFundAmounts({...fundAmounts, [goal.id]: e.target.value})}
-                      className={`flex-1 px-4 py-3 rounded-xl font-bold outline-none text-sm border focus:border-indigo-500 ${darkMode ? 'bg-slate-700 border-slate-600' : 'bg-slate-50 border-transparent'}`}
-                    />
-                    {/* 🚨 FIX: ensure onClick uses an arrow function so it doesn't run instantly */}
-                    <button 
-                      onClick={() => handleAddFund(goal.id)}
-                      className="bg-slate-900 text-white px-4 py-3 rounded-xl font-black shadow-md hover:bg-slate-800 active:scale-95 transition-all flex items-center justify-center"
-                      title="Fund this goal"
-                    >
-                      <TrendingUp size={18} />
-                    </button>
+                <div className="p-8">
+                  <h3 className="text-2xl font-black mb-6 truncate tracking-tight">{goal.title}</h3>
+                  <div className="space-y-6">
+                    <div className={`w-full h-5 rounded-full p-1.5 ${darkMode ? 'bg-slate-900' : 'bg-slate-100 shadow-inner'}`}>
+                      <div className={`h-full rounded-full transition-all duration-1000 ease-out ${isCompleted ? 'bg-emerald-500' : 'bg-indigo-600'}`} style={{ width: `${progress}%` }} />
+                    </div>
+                    <div className="flex justify-between items-end pt-2">
+                      <div>
+                        <p className="text-[9px] font-black opacity-30 uppercase tracking-[0.2em] mb-1">Available</p>
+                        <p className="text-2xl font-black text-indigo-600">₹{goal.current_amount?.toLocaleString()}</p>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-[9px] font-black opacity-30 uppercase tracking-[0.2em] mb-1">Target</p>
+                        <p className="text-sm font-black opacity-60">₹{goal.target_amount?.toLocaleString()}</p>
+                      </div>
+                    </div>
                   </div>
-                )}
+                </div>
               </div>
             );
           })
         )}
       </div>
-
     </div>
   );
 }

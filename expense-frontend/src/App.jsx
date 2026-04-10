@@ -9,6 +9,7 @@ import Debts from './components/Debts';
 import Savings from './components/Savings';
 import AddTransactionModal from './components/AddTransactionModal';
 import FeatureAnnouncement from './components/FeatureAnnouncement';
+import {Toaster} from 'react-hot-toast';
 import { Moon, Sun, LogOut } from 'lucide-react';
 
 // Pull the Backend URL from .env (Vercel/Render)
@@ -168,6 +169,19 @@ function AuthWrapper() {
 export default function App() {
   return (
     <AuthProvider>
+      {/* The Toaster is a "silent" listener that sits at the top level */}
+      <Toaster 
+        position="top-center"
+        toastOptions={{
+          duration: 4000,
+          style: {
+            background: '#333',
+            color: '#fff',
+            borderRadius: '16px',
+            fontWeight: 'bold'
+          },
+        }} 
+      />
       <AuthWrapper />
     </AuthProvider>
   );
