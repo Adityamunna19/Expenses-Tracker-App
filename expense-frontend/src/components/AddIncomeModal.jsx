@@ -4,8 +4,15 @@ import toast from 'react-hot-toast';
 
 export default function AddIncomeModal({ user, onClose, onSuccess, darkMode, API_BASE }) {
   const [formData, setFormData] = useState({
-    title: '', amount: '', category: 'Income', payment_method: 'Bank Transfer',
-    date: new Date().toISOString().split('T')[0], note: '', is_secret: false, type: 'credit'
+    title: '',
+    amount: '', 
+    category: 'Income', 
+    payment_method: 'Bank Transfer',
+    date: new Date().toISOString().split('T')[0],
+    note: '', is_secret: false, 
+    type: 'credit',
+    is_debt_payment: false, 
+    type: 'credit'
   });
 
   const [smartInput, setSmartInput] = useState('');
@@ -113,6 +120,19 @@ export default function AddIncomeModal({ user, onClose, onSuccess, darkMode, API
             <label className={labelClass}>Date</label>
             <input type="date" value={formData.date} onChange={(e) => setFormData({...formData, date: e.target.value})} className={inputClass} />
           </div>
+          <div className="p-4 bg-rose-50 dark:bg-rose-900/20 rounded-2xl border border-rose-100 dark:border-rose-500/30">
+  <label className="flex items-center gap-3 cursor-pointer">
+    <input 
+      type="checkbox" 
+      checked={formData.is_debt_payment} 
+      onChange={(e) => setFormData({...formData, is_debt_payment: e.target.checked})} 
+      className="w-5 h-5 accent-rose-600" 
+    />
+    <span className="text-xs font-black text-rose-600 uppercase tracking-widest">
+      Is this borrowed money? (Adds to Debts)
+    </span>
+  </label>
+</div>
 
           <button type="submit" disabled={isSubmitting} className="w-full py-4 mt-2 bg-emerald-500 text-white rounded-xl font-bold hover:bg-emerald-600 active:scale-[0.98] transition-all flex justify-center">
             {isSubmitting ? <Loader2 className="animate-spin" /> : 'Confirm Income'}

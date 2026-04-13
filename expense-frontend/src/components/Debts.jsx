@@ -1,6 +1,6 @@
 import { Landmark, ArrowUpRight } from 'lucide-react';
 
-export default function Debts({ transactions }) {
+export default function Debts({ transactions, onAddDebt }) {
   // 1. Base Debt - Set to 0 so no "ghost" numbers appear
   const INITIAL_DEBT = 0;
 
@@ -24,8 +24,19 @@ export default function Debts({ transactions }) {
   return (
     <div className="animate-in fade-in slide-in-from-bottom-6 duration-700 max-w-4xl mx-auto pb-10">
       <div className="mb-12 text-center lg:text-left px-4">
-        <h2 className="text-4xl font-black text-slate-900 mb-3 tracking-tight">Debt Liquidation</h2>
-        <p className="text-slate-500 font-bold text-lg">Track your journey to becoming debt-free.</p>
+        <div className="flex justify-between items-end mb-12 px-4">
+        <div>
+          <h2 className="text-4xl font-black text-slate-900 mb-3 tracking-tight">Debt Liquidation</h2>
+          <p className="text-slate-500 font-bold">Track your journey to becoming debt-free.</p>
+        </div>
+        {/* This button will trigger the Credit Modal with Debt auto-selected */}
+        <button 
+          onClick={onAddDebt}
+          className="px-6 py-3 bg-rose-600 text-white rounded-2xl font-black text-sm shadow-lg shadow-rose-500/30 hover:scale-105 active:scale-95 transition-all"
+        >
+          + Record New Loan
+        </button>
+      </div>
       </div>
 
       <div className="px-4">

@@ -10,7 +10,9 @@ import Savings from './components/Savings';
 import Goals from './components/Goals';
 import AddExpenseModal from './components/AddExpenseModal';
 import AddIncomeModal from './components/AddIncomeModal';
+import AccountSetupModal from './components/AccountSetupModal'; // NEW
 import FeatureAnnouncement from './components/FeatureAnnouncement';
+import UserProfilePane from './components/UserProfilePane';
 import { Toaster } from 'react-hot-toast';
 import toast from 'react-hot-toast';
 import { Moon, Sun, LogOut } from 'lucide-react';
@@ -22,15 +24,18 @@ function MainApp() {
   
   const [currentTab, setCurrentTab] = useState('Dashboard');
   const [darkMode, setDarkMode] = useState(false);
-  const [activeModal, setActiveModal] = useState(null); // 'debit' or 'credit'
+  const [activeModal, setActiveModal] = useState(null); 
   const [searchQuery, setSearchQuery] = useState("");
   
   const [transactions, setTransactions] = useState([]);
   const [stats, setStats] = useState({ total_in: 0, total_out: 0, net: 0 });
   const [analytics, setAnalytics] = useState({ categories: [] });
+  const [accounts, setAccounts] = useState([]); // NEW: Tracks Banks/Cards
 
   const [filterMonth, setFilterMonth] = useState(new Date().getMonth() + 1);
   const [filterYear, setFilterYear] = useState(new Date().getFullYear());
+
+  const [isProfileOpen, setIsProfileOpen] = useState(false);
 
   // SAFE HEADERS: Prevents "undefined" UUID crashes
   const getHeaders = () => {
@@ -42,7 +47,7 @@ function MainApp() {
   };
 
   const fetchData = async () => {
-    if (!user?.id) return; // Stop fetching if user ID isn't ready
+    if (!user?.id) return; 
     
     try {
       const transRes = await fetch(`${API_BASE}/transactions`, { headers: getHeaders() });
@@ -54,6 +59,11 @@ function MainApp() {
 
       const analyticsRes = await fetch(`${API_BASE}/analytics?month=${filterMonth}&year=${filterYear}`, { headers: getHeaders() });
       setAnalytics(await analyticsRes.json());
+
+      // NEW: Fetch Accounts
+      const accRes = await fetch(`${API_BASE}/accounts`, { headers: getHeaders() });
+      const accData = await accRes.json();
+      setAccounts(Array.isArray(accData) ? accData : []);
     } catch (err) { 
       console.error("Data Fetch Error:", err); 
     }
@@ -75,7 +85,6 @@ function MainApp() {
       t.expected_recovery_date < today
     );
 
-    // Show persistent toast if money is owed past due date
     if (overdue.length > 0) {
       const totalOwed = overdue.reduce((sum, t) => sum + t.amount, 0);
       toast.error(
@@ -99,6 +108,11 @@ function MainApp() {
   return (
     <div className={`${darkMode ? 'bg-slate-900 text-slate-100' : 'bg-[#f8eee4] text-slate-800'} min-h-screen transition-colors duration-500 p-4 md:p-10 pb-24 font-sans`}>
       
+      {/* INITIAL SETUP LOCK: Forces user to add a bank if none exist */}
+      {accounts.length === 0 && user?.id && (
+        <AccountSetupModal user={user} onSuccess={fetchData} darkMode={darkMode} API_BASE={API_BASE} />
+      )}
+
       <div className="fixed bottom-8 right-8 z-50 flex flex-col gap-4">
         <button onClick={signOut} className="p-4 bg-rose-500 text-white rounded-full shadow-2xl hover:bg-rose-600 active:scale-95 transition-all" title="Logout">
           <LogOut size={24} />
@@ -112,7 +126,8 @@ function MainApp() {
         currentTab={currentTab} 
         setCurrentTab={setCurrentTab} 
         user={{ name: user.user_metadata?.first_name ? `${user.user_metadata.first_name} ${user.user_metadata.last_name || ''}`.trim() : (user.email?.split('@')[0] || 'Pilot') }} 
-        darkMode={darkMode} 
+        darkMode={darkMode}
+        onOpenProfile={() => setIsProfileOpen(true)} 
       />
 
       <main className="max-w-7xl mx-auto mt-6">
@@ -136,19 +151,30 @@ function MainApp() {
           <Transactions transactions={filteredTransactions} searchQuery={searchQuery} setSearchQuery={setSearchQuery} onDelete={async (id) => { await fetch(`${API_BASE}/transactions/${id}`, { method: 'DELETE', headers: getHeaders() }); fetchData(); }} darkMode={darkMode} />
         )}
 
-        {currentTab === 'Debts' && <Debts transactions={transactions} darkMode={darkMode} />}
+        {currentTab === 'Debts' && <Debts transactions={transactions} darkMode={darkMode} onAddDebt={() => setActiveModal('credit')} />}
         {currentTab === 'Recoveries' && <Recoveries transactions={transactions} onSuccess={fetchData} darkMode={darkMode} API_BASE={API_BASE} headers={getHeaders()} />}
         {currentTab === 'Goals' && <Goals darkMode={darkMode} API_BASE={API_BASE} headers={getHeaders()} />}
         {currentTab === 'Savings' && <Savings darkMode={darkMode} API_BASE={API_BASE} headers={getHeaders()} />}
+
+        {isProfileOpen && (
+        <UserProfilePane 
+          user={user} 
+          accounts={accounts} 
+          onClose={() => setIsProfileOpen(false)} 
+          onSuccess={fetchData} 
+          darkMode={darkMode} 
+          API_BASE={API_BASE} 
+        />
+      )}
       </main>
 
       {/* MODAL ROUTING */}
       {activeModal === 'debit' && (
-        <AddExpenseModal user={user} onClose={() => setActiveModal(null)} onSuccess={fetchData} darkMode={darkMode} API_BASE={API_BASE} />
+        <AddExpenseModal user={user} onClose={() => setActiveModal(null)} onSuccess={fetchData} darkMode={darkMode} API_BASE={API_BASE} accounts={accounts} />
       )}
       
       {activeModal === 'credit' && (
-        <AddIncomeModal user={user} onClose={() => setActiveModal(null)} onSuccess={fetchData} darkMode={darkMode} API_BASE={API_BASE} />
+        <AddIncomeModal user={user} onClose={() => setActiveModal(null)} onSuccess={fetchData} darkMode={darkMode} API_BASE={API_BASE} accounts={accounts} />
       )}
     </div>
   );
