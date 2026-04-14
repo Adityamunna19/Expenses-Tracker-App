@@ -13,6 +13,8 @@ import AddIncomeModal from './components/AddIncomeModal';
 import AccountSetupModal from './components/AccountSetupModal'; // NEW
 import FeatureAnnouncement from './components/FeatureAnnouncement';
 import UserProfilePane from './components/UserProfilePane';
+import AddLoanModal from './components/AddLoanModal';
+import EMICalculatorModal from './components/EMICalculatorModal'; // NEW
 import { Toaster } from 'react-hot-toast';
 import toast from 'react-hot-toast';
 import { Moon, Sun, LogOut } from 'lucide-react';
@@ -175,10 +177,21 @@ const handleAddWithScreenshot = async (file) => {
           <Transactions transactions={filteredTransactions} searchQuery={searchQuery} setSearchQuery={setSearchQuery} onDelete={async (id) => { await fetch(`${API_BASE}/transactions/${id}`, { method: 'DELETE', headers: getHeaders() }); fetchData(); }} darkMode={darkMode} />
         )}
 
-        {currentTab === 'Debts' && <Debts transactions={transactions} darkMode={darkMode} onAddDebt={() => setActiveModal('credit')} />}
+        {currentTab === 'Debts' && <Debts transactions={transactions} darkMode={darkMode} onAddDebt={() => setActiveModal({ type: 'loan' })} onOpenCalculator={() => setActiveModal({ type: 'calculator' })} />}
         {currentTab === 'Recoveries' && <Recoveries transactions={transactions} onSuccess={fetchData} darkMode={darkMode} API_BASE={API_BASE} headers={getHeaders()} />}
         {currentTab === 'Goals' && <Goals darkMode={darkMode} API_BASE={API_BASE} headers={getHeaders()} />}
         {currentTab === 'Savings' && <Savings darkMode={darkMode} API_BASE={API_BASE} headers={getHeaders()} />}
+
+        {activeModal?.type === 'loan' && (
+  <AddLoanModal 
+    user={user} 
+    onClose={() => setActiveModal(null)} 
+    onSuccess={fetchData} 
+    darkMode={darkMode} 
+    API_BASE={API_BASE} 
+    accounts={accounts} 
+  />
+)}
 
         {isProfileOpen && (
           <UserProfilePane user={user} accounts={accounts} onClose={() => setIsProfileOpen(false)} onSuccess={fetchData} darkMode={darkMode} API_BASE={API_BASE} />
@@ -208,6 +221,11 @@ const handleAddWithScreenshot = async (file) => {
           accounts={accounts} 
         />
       )}
+
+      {activeModal?.type === 'calculator' && (
+  <EMICalculatorModal onClose={() => setActiveModal(null)} darkMode={darkMode} />
+)}
+
     </div>
   );
 }

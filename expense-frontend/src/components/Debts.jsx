@@ -1,6 +1,6 @@
-import { Landmark, ArrowUpRight } from 'lucide-react';
+import { Landmark, ArrowUpRight,Calculator } from 'lucide-react';
 
-export default function Debts({ transactions, onAddDebt }) {
+export default function Debts({ transactions, darkMode, onAddDebt, onOpenCalculator }) {
   // 1. Base Debt - Set to 0 so no "ghost" numbers appear
   const INITIAL_DEBT = 0;
 
@@ -29,12 +29,23 @@ export default function Debts({ transactions, onAddDebt }) {
           <h2 className="text-4xl font-black text-slate-900 mb-3 tracking-tight">Debt Liquidation</h2>
           <p className="text-slate-500 font-bold">Track your journey to becoming debt-free.</p>
         </div>
+        <button 
+            onClick={onOpenCalculator} 
+            className={`flex-1 sm:flex-none flex justify-center items-center gap-2 px-5 py-3 rounded-2xl font-black uppercase tracking-widest transition-all ${
+              darkMode 
+                ? 'bg-slate-800 text-indigo-400 hover:bg-slate-700' 
+                : 'bg-white text-indigo-600 hover:bg-indigo-50 shadow-sm border border-slate-200'
+            }`}
+          >
+            <Calculator size={18} />
+            <span className="hidden sm:inline">EMI Planner</span>
+          </button>
         {/* This button will trigger the Credit Modal with Debt auto-selected */}
         <button 
-          onClick={onAddDebt}
-          className="px-6 py-3 bg-rose-600 text-white rounded-2xl font-black text-sm shadow-lg shadow-rose-500/30 hover:scale-105 active:scale-95 transition-all"
+          onClick={onAddDebt} 
+          className="px-6 py-3 bg-amber-500 text-white rounded-2xl font-black uppercase tracking-widest hover:bg-amber-600 transition-all shadow-lg shadow-amber-500/20"
         >
-          + Record New Loan
+          + Add Loan
         </button>
       </div>
       </div>

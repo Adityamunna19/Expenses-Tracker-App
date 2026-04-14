@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { 
   Plus, 
   ArrowUpRight, 
@@ -7,9 +7,65 @@ import {
   History, 
   Camera, 
   Sparkles, 
-  AlertCircle 
+  AlertCircle,
+  Calculator, // NEW IMPORT
+  Equal       // NEW IMPORT
 } from 'lucide-react';
 
+// ==========================================
+// 1. QUICK MATH COMPONENT (Built right here!)
+// ==========================================
+function QuickMathCard({ darkMode }) {
+  const [expression, setExpression] = useState('');
+  const [result, setResult] = useState(null);
+
+  const handleCalculate = (e) => {
+    const val = e.target.value;
+    setExpression(val);
+    
+    try {
+      // Safely evaluate math strings (only allow numbers and math operators)
+      if (/^[0-9+\-*/().\s]*$/.test(val) && val.trim() !== '') {
+        // eslint-disable-next-line no-new-func
+        const calcResult = new Function(`return ${val}`)();
+        if (isFinite(calcResult)) setResult(calcResult);
+      } else {
+        setResult(null);
+      }
+    } catch {
+      setResult(null);
+    }
+  };
+
+  return (
+    <div className={`p-8 rounded-[3rem] shadow-xl transition-all duration-300 ${darkMode ? 'bg-slate-800' : 'bg-white'}`}>
+      <div className="flex items-center gap-3 mb-6">
+        <div className="p-3 bg-indigo-500/10 text-indigo-500 rounded-2xl">
+          <Calculator size={24} />
+        </div>
+        <h3 className="text-xl font-black uppercase tracking-tight text-indigo-500">Quick Math</h3>
+      </div>
+      
+      <div className={`flex flex-col rounded-3xl border-2 overflow-hidden ${darkMode ? 'border-slate-700 bg-slate-900/50' : 'border-slate-100 bg-slate-50'}`}>
+        <input 
+          type="text" 
+          placeholder="e.g. 1250 / 3"
+          value={expression}
+          onChange={handleCalculate}
+          className="w-full bg-transparent p-6 outline-none font-black text-2xl text-center placeholder:opacity-30"
+        />
+        <div className={`flex items-center justify-center gap-3 p-4 font-black text-3xl border-t-2 ${darkMode ? 'border-slate-700 text-emerald-400' : 'border-slate-100 text-emerald-500'}`}>
+          <Equal size={24} className="opacity-50" />
+          {result !== null ? result.toLocaleString(undefined, { maximumFractionDigits: 2 }) : '0.00'}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ==========================================
+// 2. MAIN DASHBOARD COMPONENT
+// ==========================================
 export default function Dashboard({ 
   onAddWithScreenshot, 
   recentTransactions, 
@@ -95,7 +151,7 @@ export default function Dashboard({
             <div className="p-3 bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 rounded-2xl">
               <ArrowDownLeft size={24} />
             </div>
-            <button onClick={onAddCredit} className="text-[10px] font-black uppercase text-emerald-600 tracking-widest hover:opacity-70">+ Add Income</button>
+            <button onClick={onAddCredit} className="px-4 py-2 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-600 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all">+ Add Income</button>
           </div>
           <p className="text-[10px] font-black uppercase opacity-40 tracking-widest mb-1">Total Received</p>
           <h4 className="text-3xl font-black">₹{stats.total_in?.toLocaleString() || 0}</h4>
@@ -107,16 +163,18 @@ export default function Dashboard({
             <div className="p-3 bg-rose-100 dark:bg-rose-900/30 text-rose-600 rounded-2xl">
               <ArrowUpRight size={24} />
             </div>
-            <button onClick={onAddExpense} className="text-[10px] font-black uppercase text-rose-600 tracking-widest hover:opacity-70">+ Add Expense</button>
+            <button onClick={onAddExpense} className="px-4 py-2 bg-rose-500/10 hover:bg-rose-500/20 text-rose-600 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all">+ Add Expense</button>
           </div>
           <p className="text-[10px] font-black uppercase opacity-40 tracking-widest mb-1">Total Spent</p>
           <h4 className="text-3xl font-black">₹{stats.total_out?.toLocaleString() || 0}</h4>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        {/* RECENT TRANSACTIONS */}
-        <div className={cardClass}>
+      {/* BOTTOM SECTION: 3-COLUMN LAYOUT */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        
+        {/* LEFT SIDE: RECENT TRANSACTIONS (Takes up 2 columns) */}
+        <div className={`${cardClass} lg:col-span-2`}>
           <div className="flex justify-between items-center mb-8">
             <h3 className="text-xl font-black uppercase tracking-tight flex items-center gap-2">
               <History size={20} className="text-indigo-500" /> Recent Activity
@@ -146,32 +204,40 @@ export default function Dashboard({
           </div>
         </div>
 
-        {/* PENDING RECOVERIES ALERTS */}
-        <div className={cardClass}>
-          <div className="flex items-center gap-2 mb-8 text-rose-500">
-            <AlertCircle size={24} />
-            <h3 className="text-xl font-black uppercase tracking-tight">Active Recoveries</h3>
-          </div>
+        {/* RIGHT SIDE: RECOVERIES & CALCULATOR (Stacked in 1 column) */}
+        <div className="space-y-8">
           
-          <div className="space-y-4">
-            {pendingRecoveries && pendingRecoveries.length > 0 ? (
-              pendingRecoveries.map((tx) => (
-                <div key={tx.id} className="p-5 rounded-[2rem] border-2 border-rose-500/20 bg-rose-500/5 flex justify-between items-center">
-                  <div>
-                    <p className="font-black text-sm">{tx.title}</p>
-                    <p className="text-[10px] font-bold text-rose-500 uppercase tracking-widest">Expected: {tx.expected_recovery_date}</p>
+          {/* PENDING RECOVERIES ALERTS */}
+          <div className={cardClass}>
+            <div className="flex items-center gap-2 mb-8 text-rose-500">
+              <AlertCircle size={24} />
+              <h3 className="text-xl font-black uppercase tracking-tight">Active Recoveries</h3>
+            </div>
+            
+            <div className="space-y-4">
+              {pendingRecoveries && pendingRecoveries.length > 0 ? (
+                pendingRecoveries.map((tx) => (
+                  <div key={tx.id} className="p-5 rounded-[2rem] border-2 border-rose-500/20 bg-rose-500/5 flex justify-between items-center">
+                    <div>
+                      <p className="font-black text-sm">{tx.title}</p>
+                      <p className="text-[10px] font-bold text-rose-500 uppercase tracking-widest">Expected: {tx.expected_recovery_date}</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="font-black text-rose-600">₹{tx.amount.toLocaleString()}</p>
+                    </div>
                   </div>
-                  <div className="text-right">
-                    <p className="font-black text-rose-600">₹{tx.amount.toLocaleString()}</p>
-                  </div>
+                ))
+              ) : (
+                <div className="text-center py-6">
+                  <p className="font-bold opacity-30 italic text-sm">All debts collected.</p>
                 </div>
-              ))
-            ) : (
-              <div className="text-center py-10">
-                <p className="font-bold opacity-30 italic">All debts collected. You are in the green.</p>
-              </div>
-            )}
+              )}
+            </div>
           </div>
+
+          {/* QUICK MATH COMPONENT PLACED HERE */}
+          <QuickMathCard darkMode={darkMode} />
+
         </div>
       </div>
     </div>
