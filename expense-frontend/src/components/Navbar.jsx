@@ -1,7 +1,6 @@
-import { LayoutDashboard, ReceiptText, Landmark, Undo2, Target, Vault } from 'lucide-react';
+import { LayoutDashboard, ReceiptText, Landmark, Undo2, Target, Vault, Sun, Moon } from 'lucide-react';
 
-// Added onOpenProfile to the props
-export default function Navbar({ currentTab, setCurrentTab, user, darkMode, onOpenProfile }) {
+export default function Navbar({ currentTab, setCurrentTab, user, darkMode, setDarkMode, onOpenProfile }) {
   const tabs = [
     { name: 'Dashboard', icon: <LayoutDashboard size={18} /> },
     { name: 'Transactions', icon: <ReceiptText size={18} /> },
@@ -14,7 +13,7 @@ export default function Navbar({ currentTab, setCurrentTab, user, darkMode, onOp
   return (
     <nav className="flex flex-col md:flex-row justify-between items-center mb-10 gap-6">
       
-      {/* TRIGGER BUTTON: Wrapped the profile area in a button */}
+      {/* Profile Button - Opens UserProfilePane */}
       <button 
         onClick={onOpenProfile}
         className={`flex items-center gap-4 p-2 pr-6 rounded-[2rem] transition-all hover:scale-105 active:scale-95 border-2 border-transparent ${darkMode ? 'hover:bg-slate-800 hover:border-slate-700' : 'hover:bg-white hover:border-slate-200 hover:shadow-sm'}`}
@@ -30,21 +29,38 @@ export default function Navbar({ currentTab, setCurrentTab, user, darkMode, onOp
         </div>
       </button>
 
-      <div className={`flex justify-start md:justify-center gap-2 p-2 rounded-[2.5rem] border shadow-sm w-full md:w-auto overflow-x-auto scrollbar-hide ${darkMode ? 'bg-slate-900/50 border-slate-800' : 'bg-white/50 backdrop-blur-md'}`}>
-        {tabs.map((tab) => (
-          <button
-            key={tab.name}
-            onClick={() => setCurrentTab(tab.name)}
-            className={`flex items-center gap-2 px-5 py-3 rounded-[2rem] font-bold text-sm transition-all whitespace-nowrap ${
-              currentTab === tab.name
-                ? (darkMode ? 'bg-white text-slate-900 shadow-md' : 'bg-slate-900 text-white shadow-md')
-                : (darkMode ? 'text-slate-400 hover:text-white hover:bg-slate-800' : 'text-slate-500 hover:bg-slate-100 hover:text-slate-900')
-            }`}
-          >
-            {tab.icon}
-            <span className="hidden sm:inline">{tab.name}</span>
-          </button>
-        ))}
+      {/* Right Side: Theme Toggle + Navigation Tabs */}
+      <div className="flex items-center gap-4">
+        {/* THEME TOGGLE - Now in Navbar */}
+        <button 
+          onClick={() => setDarkMode(!darkMode)}
+          className={`p-3 rounded-2xl transition-all border-2 ${
+            darkMode 
+              ? 'bg-amber-400/10 border-amber-400/30 text-amber-400 hover:bg-amber-400/20' 
+              : 'bg-slate-100 border-slate-200 text-slate-600 hover:bg-slate-200'
+          }`}
+          title={darkMode ? "Switch to Light Mode" : "Switch to Dark Mode"}
+        >
+          {darkMode ? <Sun size={20} /> : <Moon size={20} />}
+        </button>
+
+        {/* Navigation Tabs */}
+        <div className={`flex justify-start md:justify-center gap-2 p-2 rounded-[2.5rem] border shadow-sm w-full md:w-auto overflow-x-auto scrollbar-hide ${darkMode ? 'bg-slate-900/50 border-slate-800' : 'bg-white/50 backdrop-blur-md'}`}>
+          {tabs.map((tab) => (
+            <button
+              key={tab.name}
+              onClick={() => setCurrentTab(tab.name)}
+              className={`flex items-center gap-2 px-5 py-3 rounded-[2rem] font-bold text-sm transition-all whitespace-nowrap ${
+                currentTab === tab.name
+                  ? (darkMode ? 'bg-white text-slate-900 shadow-md' : 'bg-slate-900 text-white shadow-md')
+                  : (darkMode ? 'text-slate-400 hover:text-white hover:bg-slate-800' : 'text-slate-500 hover:bg-slate-100 hover:text-slate-900')
+              }`}
+            >
+              {tab.icon}
+              <span className="hidden sm:inline">{tab.name}</span>
+            </button>
+          ))}
+        </div>
       </div>
     </nav>
   );

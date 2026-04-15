@@ -1,8 +1,8 @@
 import { useState } from 'react';
-import { X, Building2, CreditCard, Trash2, Plus, Loader2, User } from 'lucide-react';
+import { X, Building2, CreditCard, Trash2, Plus, Loader2, LogOut } from 'lucide-react';
 import toast from 'react-hot-toast';
 
-export default function UserProfilePane({ user, accounts, onClose, onSuccess, darkMode, API_BASE }) {
+export default function UserProfilePane({ user, accounts, onClose, onSuccess, darkMode, API_BASE, onLogout }) {
   const [isAdding, setIsAdding] = useState(false);
   const [newAcc, setNewAcc] = useState({ name: '', type: 'bank' });
   const [loading, setLoading] = useState(false);
@@ -71,7 +71,6 @@ export default function UserProfilePane({ user, accounts, onClose, onSuccess, da
           {/* User Info Section */}
           <div className={`p-6 rounded-[2rem] shadow-lg flex items-center gap-5 ${cardBg}`}>
             <div className="w-16 h-16 rounded-full bg-indigo-600 text-white flex items-center justify-center text-xl font-black shadow-inner uppercase">
-              {/* FIXED: Safe fallback chain prevents .toUpperCase() crashes */}
               {user?.user_metadata?.first_name?.charAt(0) || user?.email?.charAt(0) || 'P'}
             </div>
             <div>
@@ -81,6 +80,7 @@ export default function UserProfilePane({ user, accounts, onClose, onSuccess, da
               <p className="text-xs font-bold opacity-50">{user?.email || 'No email provided'}</p>
             </div>
           </div>
+
           {/* Accounts Management Section */}
           <div>
             <div className="flex justify-between items-end mb-6">
@@ -122,12 +122,15 @@ export default function UserProfilePane({ user, accounts, onClose, onSuccess, da
                   <div className="flex gap-3 mb-4">
                     <input 
                       autoFocus
-                      type="text" placeholder="e.g. ICICI Bank" value={newAcc.name}
+                      type="text" 
+                      placeholder="e.g. ICICI Bank" 
+                      value={newAcc.name}
                       onChange={(e) => setNewAcc({...newAcc, name: e.target.value})}
                       className={`flex-1 p-3 rounded-xl text-sm font-bold outline-none border ${darkMode ? 'bg-slate-900 border-slate-700 focus:border-indigo-500' : 'bg-white border-slate-200 focus:border-indigo-500'}`}
                     />
                     <select 
-                      value={newAcc.type} onChange={(e) => setNewAcc({...newAcc, type: e.target.value})}
+                      value={newAcc.type} 
+                      onChange={(e) => setNewAcc({...newAcc, type: e.target.value})}
                       className={`p-3 rounded-xl text-sm font-bold outline-none border ${darkMode ? 'bg-slate-900 border-slate-700' : 'bg-white border-slate-200'}`}
                     >
                       <option value="bank">Bank</option>
@@ -135,14 +138,38 @@ export default function UserProfilePane({ user, accounts, onClose, onSuccess, da
                     </select>
                   </div>
                   <div className="flex gap-2">
-                    <button type="button" onClick={() => setIsAdding(false)} className="flex-1 py-3 text-xs font-black text-slate-500 bg-slate-200 dark:bg-slate-800 rounded-xl">Cancel</button>
-                    <button type="submit" disabled={loading} className="flex-1 py-3 text-xs font-black text-white bg-indigo-600 rounded-xl flex justify-center items-center">
+                    <button 
+                      type="button" 
+                      onClick={() => setIsAdding(false)} 
+                      className="flex-1 py-3 text-xs font-black text-slate-500 bg-slate-200 dark:bg-slate-800 rounded-xl"
+                    >
+                      Cancel
+                    </button>
+                    <button 
+                      type="submit" 
+                      disabled={loading} 
+                      className="flex-1 py-3 text-xs font-black text-white bg-indigo-600 rounded-xl flex justify-center items-center"
+                    >
                       {loading ? <Loader2 size={14} className="animate-spin" /> : 'Save Account'}
                     </button>
                   </div>
                 </form>
               )}
             </div>
+          </div>
+
+          {/* LOGOUT BUTTON - Moved here from App.jsx */}
+          <div className="pt-8 border-t border-slate-200 dark:border-slate-700">
+            <button 
+              onClick={() => {
+                onLogout();
+                onClose(); // Close the profile pane after initiating logout
+              }}
+              className="w-full py-4 flex items-center justify-center gap-3 bg-rose-500/10 text-rose-600 hover:bg-rose-500 hover:text-white rounded-2xl font-black uppercase tracking-widest transition-all border-2 border-rose-500/20 hover:border-rose-500"
+            >
+              <LogOut size={20} />
+              Sign Out
+            </button>
           </div>
 
         </div>
