@@ -194,6 +194,7 @@ function MainApp() {
               await fetch(`${API_BASE}/transactions/${id}`, { method: 'DELETE', headers: getHeaders() }); 
               fetchData(); 
             }} 
+            onEdit={(tx) => setActiveModal({ type: tx.type === 'credit' ? 'credit' : 'debit', editData: tx })}
             darkMode={darkMode} 
           />
         )}
@@ -231,6 +232,7 @@ function MainApp() {
         <AddExpenseModal 
           user={user} 
           prefill={activeModal.prefill}
+          editData={activeModal.editData}
           onClose={() => setActiveModal(null)} 
           onSuccess={fetchData} 
           darkMode={darkMode} 
@@ -244,6 +246,7 @@ function MainApp() {
       {activeModal?.type === 'credit' && (
         <AddIncomeModal 
           user={user} 
+          editData={activeModal.editData}
           onClose={() => setActiveModal(null)} 
           onSuccess={fetchData} 
           darkMode={darkMode} 
