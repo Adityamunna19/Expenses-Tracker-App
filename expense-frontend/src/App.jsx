@@ -21,6 +21,8 @@ import { Toaster } from 'react-hot-toast';
 import toast from 'react-hot-toast';
 import { Sun, Moon } from 'lucide-react';
 import { getCardBalanceSnapshot } from './utils';
+import { requestForToken, onMessageListener } from './firebaseSetup';
+import Subscriptions from './components/Subscriptions';
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || 'https://expenses-tracker-app-backend-main.onrender.com';
 
@@ -131,6 +133,27 @@ setActiveModal({ type: detectedType, prefill: data });
       );
     }
   }, [transactions, darkMode]);
+
+  useEffect(() => {
+    if (user?.id) {
+      // 1. Ask for push notification permission
+      requestForToken(user.id, API_BASE);
+
+      // 2. Listen for messages if the app is currently open
+      onMessageListener().then(payload => {
+        toast.success(payload.notification.body, {
+          icon: '✈️',
+          duration: 8000,
+          style: { 
+            borderRadius: '16px', 
+            background: darkMode ? '#1e293b' : '#fff', 
+            color: darkMode ? '#f8fafc' : '#0f172a',
+            border: '1px solid #3b82f6'
+          }
+        });
+      }).catch(err => console.log('Firebase message listener failed: ', err));
+    }
+  }, [user, darkMode, API_BASE]);
 
   const filteredTransactions = transactions.filter(tx => 
     tx.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -305,6 +328,10 @@ setActiveModal({ type: detectedType, prefill: data });
       {activeModal?.type === 'budget' && (
         <SetBudgetModal user={user} onClose={() => setActiveModal(null)} onSuccess={fetchData} darkMode={darkMode} API_BASE={API_BASE} />
       )}
+
+      {currentTab === 'Subscriptions' && (
+  <Subscriptions API_BASE={API_BASE} headers={getHeaders()} darkMode={darkMode} />
+)}
 
     </div>
   );
