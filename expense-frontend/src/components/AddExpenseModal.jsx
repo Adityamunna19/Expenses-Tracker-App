@@ -50,12 +50,13 @@ export default function AddExpenseModal({ user, onClose, onSuccess, darkMode, AP
         title: prefill.title,
         amount: prefill.amount,
         date: prefill.date || prev.date,
-        payment_method: prefill.payment_method || 'UPI'
+        payment_method: prefill.payment_method || 'UPI',
+        category: prefill.category || prev.category
       }));
     }
   }, [prefill, editData]);
 
-  // Auto-select credit card when category is "Credit Card Payment"
+  // Auto-select credit card when category is "Credit Card Payment" or when prefill has to_account_id
   useEffect(() => {
     if (formData.category === 'Credit Card Payment' && !formData.to_account_id) {
       const creditCard = accounts.find(a => a.type === 'card');
@@ -67,7 +68,19 @@ export default function AddExpenseModal({ user, onClose, onSuccess, darkMode, AP
         }));
       }
     }
-  }, [formData.category, accounts]);
+    // If prefill has to_account_id and category is Credit Card Payment, ensure it's set
+    if (prefill?.to_account_id && prefill.category === 'Credit Card Payment') {
+      const creditCard = accounts.find(a => a.id === prefill.to_account_id);
+      if (creditCard) {
+        setFormData(prev => ({
+          ...prev,
+          category: 'Credit Card Payment',
+          to_account_id: creditCard.id,
+          payment_method: 'UPI'
+        }));
+      }
+    }
+  }, [formData.category, accounts, prefill]);
 
   const localPreParse = (text, availableGoals, availableAccounts) => {
     // ... (Your existing localPreParse logic stays exactly the same)

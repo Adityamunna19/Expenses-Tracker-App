@@ -20,6 +20,7 @@ import SetBudgetModal from './components/SetBudgetModal';
 import { Toaster } from 'react-hot-toast';
 import toast from 'react-hot-toast';
 import { Sun, Moon } from 'lucide-react';
+import { getCardBalanceSnapshot } from './utils';
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || 'https://expenses-tracker-app-backend-main.onrender.com';
 
@@ -57,7 +58,11 @@ function MainApp() {
         });
         const data = await res.json();
         
-        setActiveModal({ type: 'debit', prefill: data });
+        // 👇 SMART ROUTING: Check if the AI detected income or expense
+        const detectedType = data.type === 'credit' ? 'credit' : 'debit';
+setActiveModal({ type: detectedType, prefill: data });
+        
+        setActiveModal({ type: detectedType, prefill: data });
         toast.success("Vision extraction complete!", { id: loadingToast });
       } catch (err) {
         toast.error("Vision failed to read image", { id: loadingToast });
@@ -137,17 +142,7 @@ function MainApp() {
   // Calculate total credit card debt
   const totalCCDebt = accounts
     .filter(a => a.type === 'card')
-    .reduce((total, card) => {
-      const spent = transactions
-        .filter(t => t.account_id === card.id && t.type === 'debit')
-        .reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
-        
-      const paidBack = transactions
-        .filter(t => (t.to_account_id === card.id && t.type === 'transfer') || (t.account_id === card.id && t.type === 'credit'))
-        .reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
-
-      return total + Math.max(0, spent - paidBack);
-    }, 0);
+    .reduce((total, card) => total + getCardBalanceSnapshot(card.id, transactions).outstanding, 0);
 
   return (
     <div className={`${darkMode ? 'bg-slate-900 text-slate-100' : 'bg-[#f8eee4] text-slate-800'} min-h-screen transition-colors duration-500 p-4 md:p-10 pb-24 font-sans`}>
@@ -236,7 +231,7 @@ function MainApp() {
             user={user}
             API_BASE={API_BASE}
             onSuccess={fetchData}
-            onPayBill={(cardId) => setActiveModal({ type: 'transfer', editData: { to_account_id: cardId } })}
+            onPayBill={(cardId) => setActiveModal({ type: 'debit', prefill: { category: 'Credit Card Payment', to_account_id: cardId } })}
           />
         )}
 
@@ -268,7 +263,6 @@ function MainApp() {
         <AddExpenseModal 
           user={user} 
           prefill={activeModal.prefill}
-          editData={activeModal.editData}
           onClose={() => setActiveModal(null)} 
           onSuccess={fetchData} 
           darkMode={darkMode} 
@@ -282,6 +276,7 @@ function MainApp() {
       {activeModal?.type === 'credit' && (
         <AddIncomeModal 
           user={user} 
+          prefill={activeModal.prefill}
           editData={activeModal.editData}
           onClose={() => setActiveModal(null)} 
           onSuccess={fetchData} 

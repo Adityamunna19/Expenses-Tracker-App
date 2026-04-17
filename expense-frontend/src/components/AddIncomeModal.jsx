@@ -3,17 +3,17 @@ import { X, Loader2, Sparkles, Building2, CreditCard, FileText } from 'lucide-re
 import toast from 'react-hot-toast';
 
 // 👇 1. ADDED editData = null TO PROPS
-export default function AddIncomeModal({ user, onClose, onSuccess, darkMode, API_BASE, accounts = [], editData = null }) {
+export default function AddIncomeModal({ user, onClose, onSuccess, darkMode, API_BASE, accounts = [], prefill = null, editData = null }) {
   
-  // 👇 2. UPDATED STATE TO PULL FROM editData FIRST
+  // 👇 2. UPDATED STATE TO PULL FROM editData OR prefill
   const [formData, setFormData] = useState({
-    title: editData?.title || '',
-    amount: editData?.amount || '', 
-    category: editData?.category || 'Income', 
-    payment_method: editData?.payment_method || 'Bank Transfer',
-    account_id: editData?.account_id || '',
-    date: editData?.date || new Date().toISOString().split('T')[0],
-    note: editData?.note || '', 
+    title: editData?.title || prefill?.title || '',
+    amount: editData?.amount || prefill?.amount || '', 
+    category: editData?.category || prefill?.category || 'Income', 
+    payment_method: editData?.payment_method || prefill?.payment_method || 'Bank Transfer',
+    account_id: editData?.account_id || prefill?.account_id || '',
+    date: editData?.date || prefill?.date || new Date().toISOString().split('T')[0],
+    note: editData?.note || prefill?.note || '', 
     is_secret: editData?.is_secret || false, 
     type: 'credit',
     is_debt_payment: editData?.is_debt_payment || false
@@ -25,6 +25,21 @@ export default function AddIncomeModal({ user, onClose, onSuccess, darkMode, API
 
   const categories = ["Salary", "Refund","Intrest", "Gift", "Other", "Maintenance","Self"];
   const paymentMethods = ["UPI", "Cash", "Card", "Bank Transfer"];
+
+  useEffect(() => {
+    if (prefill && !editData) {
+      setFormData(prev => ({
+        ...prev,
+        title: prefill.title || prev.title,
+        amount: prefill.amount || prev.amount,
+        category: prefill.category || prev.category,
+        payment_method: prefill.payment_method || prev.payment_method,
+        account_id: prefill.account_id || prev.account_id,
+        date: prefill.date || prev.date,
+        note: prefill.note || prev.note
+      }));
+    }
+  }, [prefill, editData]);
 
   const handleSmartAdd = async (e) => {
     if (e.key === 'Enter') {

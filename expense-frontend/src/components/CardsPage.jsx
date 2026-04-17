@@ -2,21 +2,14 @@ import React, { useState } from 'react';
 import { CreditCard, Wifi, ArrowRightLeft, History, X, Plus } from 'lucide-react';
 import CardTransactionsModal from './CardTransactionsModal';
 import SetLimitModal from './SetLimitModal';
+import { getCardBalanceSnapshot } from '../utils';
 
 export default function CardsPage({ accounts = [], transactions = [], darkMode, user, API_BASE, onSuccess, onPayBill }) {
   const [viewingCard, setViewingCard] = useState(null);
   const [editingLimit, setEditingLimit] = useState(null);
 
   const cards = accounts.filter(a => a.type === 'card').map(card => {
-    const spent = transactions
-      .filter(t => t.account_id === card.id && t.type === 'debit')
-      .reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
-      
-    const paidBack = transactions
-      .filter(t => (t.to_account_id === card.id && t.type === 'transfer') || (t.account_id === card.id && t.type === 'credit'))
-      .reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
-      
-    const outstanding = Math.max(0, spent - paidBack);
+    const { outstanding, totalSpent, totalPaid } = getCardBalanceSnapshot(card.id, transactions);
     const limit = Number(card.credit_limit) || 0;
     const available = Math.max(0, limit - outstanding);
     const pctUsed = limit > 0 ? Math.min((outstanding / limit) * 100, 100) : 0;
@@ -26,7 +19,7 @@ export default function CardsPage({ accounts = [], transactions = [], darkMode, 
     else if (pctUsed > 50) colorTheme = "from-amber-400 via-amber-600 to-amber-800";
     else if (limit > 0) colorTheme = "from-indigo-500 via-purple-700 to-slate-900";
 
-    return { ...card, outstanding, available, limit, pctUsed, colorTheme };
+    return { ...card, outstanding, available, limit, pctUsed, colorTheme, totalSpent, totalPaid };
   });
 
   return (

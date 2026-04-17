@@ -161,7 +161,7 @@ export default function Dashboard({
             </div>
             <button onClick={onAddCredit} className="px-4 py-2 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-600 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all">+ Add Income</button>
           </div>
-          <p className="text-[10px] font-black uppercase opacity-40 tracking-widest mb-1">Total Received</p>
+          <p className="text-[10px] font-black uppercase opacity-40 tracking-widest mb-1">Received in {months[filterMonth - 1]}</p>
           <h4 className="text-3xl font-black">₹{stats.total_in?.toLocaleString() || 0}</h4>
         </div>
 
@@ -173,7 +173,7 @@ export default function Dashboard({
             </div>
             <button onClick={onAddExpense} className="px-4 py-2 bg-rose-500/10 hover:bg-rose-500/20 text-rose-600 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all">+ Add Expense</button>
           </div>
-          <p className="text-[10px] font-black uppercase opacity-40 tracking-widest mb-1">Total Spent</p>
+          <p className="text-[10px] font-black uppercase opacity-40 tracking-widest mb-1">Spent in {months[filterMonth - 1]}</p>
           <h4 className="text-3xl font-black">₹{stats.total_out?.toLocaleString() || 0}</h4>
         </div>
 
@@ -190,6 +190,29 @@ export default function Dashboard({
           <p className="mt-2 text-[10px] font-bold uppercase tracking-widest opacity-50">
             {accounts.filter(a => a.type === 'card').length} Cards
           </p>
+        </div>
+      </div>
+      {/* TOTAL MONEY RECEIVED - BOTTOM SECTION */}
+      <div className={`${cardClass} mt-8`}>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-[10px] font-black uppercase opacity-40 tracking-widest mb-2">Total Money Received (All Time)</p>
+              <h3 className="text-4xl font-black text-emerald-500">₹{(transactions?.filter(t => t.type === 'credit').reduce((sum, t) => sum + (Number(t.amount) || 0), 0)).toLocaleString() || 0}</h3>
+            </div>
+            <div className="p-4 bg-emerald-500/10 rounded-2xl">
+              <ArrowDownLeft size={40} className="text-emerald-600" />
+            </div>
+          </div>
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-[10px] font-black uppercase opacity-40 tracking-widest mb-2">Total Money Spent (All Time)</p>
+              <h3 className="text-4xl font-black text-rose-500">₹{(transactions?.filter(t => t.type === 'debit').reduce((sum, t) => sum + (Number(t.amount) || 0), 0)).toLocaleString() || 0}</h3>
+            </div>
+            <div className="p-4 bg-rose-500/10 rounded-2xl">
+              <ArrowUpRight size={40} className="text-rose-600" />
+            </div>
+          </div>
         </div>
       </div>
 

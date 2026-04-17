@@ -70,3 +70,35 @@ export const formatStoredDate = (value, options = {}) => {
 
   return formatted.join(' ');
 };
+
+export const getCardBalanceSnapshot = (cardId, transactions = []) => {
+  const relevantTransactions = [...transactions]
+    .filter((tx) => tx.account_id === cardId || tx.to_account_id === cardId)
+    .sort((a, b) => {
+      const aDate = a.date || a.created_at || '';
+      const bDate = b.date || b.created_at || '';
+      return aDate.localeCompare(bDate);
+    });
+
+  let outstanding = 0;
+  let totalSpent = 0;
+  let totalPaid = 0;
+
+  relevantTransactions.forEach((tx) => {
+    const amount = Number(tx.amount) || 0;
+    const isPayment = (tx.to_account_id === cardId && tx.type === 'transfer') || (tx.account_id === cardId && tx.type === 'credit');
+
+    if (isPayment) {
+      totalPaid += amount;
+      outstanding = Math.max(0, outstanding - amount);
+      return;
+    }
+
+    if (tx.account_id === cardId) {
+      totalSpent += amount;
+      outstanding += amount;
+    }
+  });
+
+  return { outstanding, totalSpent, totalPaid };
+};
