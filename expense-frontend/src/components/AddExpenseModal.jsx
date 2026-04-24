@@ -28,7 +28,7 @@ export default function AddExpenseModal({ user, onClose, onSuccess, darkMode, AP
   const [selectedGoalId, setSelectedGoalId] = useState(editData?.goal_id || '');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const categories = ["Food", "Transport", "Bills", "Shopping", "Entertainment", "Savings", "Goals", "Credit Card Payment","Beauty","Travel","Medicines","Family Maintenance","Fancy","Repairs","Other"];
+  const categories = ["Food", "Transport","Cafe","Coffee", "Bills", "Shopping", "Entertainment", "Savings", "Goals", "Credit Card Payment","Beauty","Travel","Medicines","Family Maintenance","Fancy","Repairs","Other"];
   const paymentMethods = ["UPI", "Cash", "Card", "Bank Transfer", "NetBanking"];
 
   useEffect(() => {
