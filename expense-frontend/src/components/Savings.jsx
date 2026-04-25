@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Vault, TrendingUp, History, PieChart, Loader2 } from 'lucide-react';
 import { AreaChart, Area, Tooltip, ResponsiveContainer } from 'recharts';
 import toast from 'react-hot-toast';
+import { formatStoredDate } from '../utils';
 
 export default function Savings({ darkMode, API_BASE, headers }) {
   const [goals, setGoals] = useState([]);
@@ -22,7 +23,7 @@ export default function Savings({ darkMode, API_BASE, headers }) {
       setGoals(Array.isArray(gData) ? gData : []);
       // Filter transactions to ONLY show General "Savings"
       const filtered = Array.isArray(tData) ? tData.filter(t => t.category === "Savings") : [];
-      setSavingsHistory(filtered.sort((a, b) => new Date(b.created_at) - new Date(a.created_at)));
+      setSavingsHistory(filtered.sort((a, b) => new Date(b.date || b.created_at) - new Date(a.date || a.created_at)));
     } catch (err) {
       toast.error("Vault synchronization failed.");
     } finally {
@@ -132,7 +133,7 @@ export default function Savings({ darkMode, API_BASE, headers }) {
                     </div>
                     <div>
                       <p className="font-black text-sm tracking-tight">{t.title}</p>
-                      <p className="text-[10px] opacity-40 uppercase font-black tracking-widest">{new Date(t.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}</p>
+                      <p className="text-[10px] opacity-40 uppercase font-black tracking-widest">{formatStoredDate(t.date || t.created_at, { year: false })}</p>
                     </div>
                   </div>
                   <p className="font-black text-emerald-500 text-xl tracking-tighter">+₹{t.amount.toLocaleString()}</p>

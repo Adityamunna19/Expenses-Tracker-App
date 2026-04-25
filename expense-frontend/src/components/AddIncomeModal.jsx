@@ -87,20 +87,43 @@ export default function AddIncomeModal({ user, onClose, onSuccess, darkMode, API
         account_id: formData.account_id || null
       };
 
-      // 👇 3. DYNAMIC URL & METHOD BASED ON editData 👇
-      const method = editData ? 'PUT' : 'POST';
-      const url = editData ? `${API_BASE}/transactions/${editData.id}` : `${API_BASE}/transactions`;
+      const isEditing = Boolean(editData);
+      const url = isEditing ? `${API_BASE}/transactions/${editData.id}` : `${API_BASE}/transactions`;
 
-      const transRes = await fetch(url, {
-        method: method,
+      let transRes = await fetch(url, {
+        method: isEditing ? 'PATCH' : 'POST',
         headers: { 'Content-Type': 'application/json', 'X-User-ID': user?.id },
         body: JSON.stringify(payload)
       });
 
+      if (isEditing && transRes.status === 405) {
+        transRes = await fetch(url, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json', 'X-User-ID': user?.id },
+          body: JSON.stringify(payload)
+        });
+      }
+
       if (!transRes.ok) throw new Error("Failed to save transaction");
 
+      let savedTransaction = null;
+      try {
+        savedTransaction = await transRes.json();
+      } catch {
+        savedTransaction = null;
+      }
+
+      const normalizedTransaction = {
+        ...(editData || {}),
+        ...payload,
+        ...(savedTransaction && typeof savedTransaction === 'object' ? savedTransaction : {}),
+        id: savedTransaction?.id || editData?.id || null,
+        amount: parseFloat(formData.amount),
+        date: payload.date
+      };
+
       toast.success(editData ? "Income amended securely!" : "Income recorded");
-      onSuccess();
+      await onSuccess(normalizedTransaction.id ? normalizedTransaction : null);
       onClose();
     } catch (err) { 
       toast.error("Failed to save"); 

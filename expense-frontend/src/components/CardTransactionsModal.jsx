@@ -7,7 +7,7 @@ export default function CardTransactionsModal({ card, transactions = [], onClose
 
   const cardTransactions = transactions.filter(t => 
     t.account_id === card.id || t.to_account_id === card.id
-  ).sort((a, b) => new Date(b.created_at || b.date) - new Date(a.created_at || a.date));
+  ).sort((a, b) => new Date(b.date || b.created_at) - new Date(a.date || a.created_at));
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-md animate-in fade-in duration-300">

@@ -84,26 +84,48 @@ setActiveModal({ type: detectedType, prefill: data });
     if (!user?.id) return; 
     
     try {
-      const transRes = await fetch(`${API_BASE}/transactions`, { headers: getHeaders() });
+      const headers = getHeaders();
+
+      // ⚡️ FIRE ALL 5 REQUESTS AT THE EXACT SAME TIME
+      const [transRes, statsRes, analyticsRes, accRes, budgetRes] = await Promise.all([
+        fetch(`${API_BASE}/transactions`, { headers }),
+        fetch(`${API_BASE}/stats?month=${filterMonth}&year=${filterYear}`, { headers }),
+        fetch(`${API_BASE}/analytics?month=${filterMonth}&year=${filterYear}`, { headers }),
+        fetch(`${API_BASE}/accounts`, { headers }),
+        fetch(`${API_BASE}/budgets`, { headers })
+      ]);
+
+      // Parse the JSON for all of them
       const transData = await transRes.json();
-      setTransactions(Array.isArray(transData) ? transData : []);
-
-      const statsRes = await fetch(`${API_BASE}/stats?month=${filterMonth}&year=${filterYear}`, { headers: getHeaders() });
-      setStats(await statsRes.json());
-
-      const analyticsRes = await fetch(`${API_BASE}/analytics?month=${filterMonth}&year=${filterYear}`, { headers: getHeaders() });
-      setAnalytics(await analyticsRes.json());
-
-      const accRes = await fetch(`${API_BASE}/accounts`, { headers: getHeaders() });
+      const statsData = await statsRes.json();
+      const analyticsData = await analyticsRes.json();
       const accData = await accRes.json();
-      setAccounts(Array.isArray(accData) ? accData : []);
-
-      const budgetRes = await fetch(`${API_BASE}/budgets`, { headers: getHeaders() });
       const budgetData = await budgetRes.json();
+
+      // Set the states
+      setTransactions(Array.isArray(transData) ? transData : []);
+      setStats(statsData);
+      setAnalytics(analyticsData);
+      setAccounts(Array.isArray(accData) ? accData : []);
       setBudgets(Array.isArray(budgetData) ? budgetData : []);
+
     } catch (err) { 
       console.error("Data Fetch Error:", err); 
     }
+  };
+
+  const handleTransactionSaved = async (savedTransaction = null) => {
+    if (savedTransaction?.id) {
+      setTransactions((prev) => {
+        const exists = prev.some((tx) => tx.id === savedTransaction.id);
+        if (exists) {
+          return prev.map((tx) => (tx.id === savedTransaction.id ? { ...tx, ...savedTransaction } : tx));
+        }
+        return [savedTransaction, ...prev];
+      });
+    }
+
+    await fetchData();
   };
 
   useEffect(() => {
@@ -160,6 +182,12 @@ setActiveModal({ type: detectedType, prefill: data });
     tx.category.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
+  const sortedTransactions = [...transactions].sort((a, b) => {
+    const aDate = a.date || a.created_at || '';
+    const bDate = b.date || b.created_at || '';
+    return bDate.localeCompare(aDate);
+  });
+
   const pendingRecoveries = transactions.filter(t => t.is_recovery && t.type === 'debit' && !t.is_recovered);
 
   // Calculate total credit card debt
@@ -202,7 +230,7 @@ setActiveModal({ type: detectedType, prefill: data });
           <Dashboard 
             transactions={transactions}
             onAddWithScreenshot={handleAddWithScreenshot}
-            recentTransactions={transactions.slice(0, 5)} 
+            recentTransactions={sortedTransactions.slice(0, 5)} 
             pendingRecoveries={pendingRecoveries} 
             stats={stats} 
             analytics={analytics} 
@@ -286,8 +314,9 @@ setActiveModal({ type: detectedType, prefill: data });
         <AddExpenseModal 
           user={user} 
           prefill={activeModal.prefill}
+          editData={activeModal.editData}
           onClose={() => setActiveModal(null)} 
-          onSuccess={fetchData} 
+          onSuccess={handleTransactionSaved} 
           darkMode={darkMode} 
           API_BASE={API_BASE} 
           accounts={accounts} 
@@ -302,7 +331,7 @@ setActiveModal({ type: detectedType, prefill: data });
           prefill={activeModal.prefill}
           editData={activeModal.editData}
           onClose={() => setActiveModal(null)} 
-          onSuccess={fetchData} 
+          onSuccess={handleTransactionSaved} 
           darkMode={darkMode} 
           API_BASE={API_BASE} 
           accounts={accounts} 
@@ -330,8 +359,14 @@ setActiveModal({ type: detectedType, prefill: data });
       )}
 
       {currentTab === 'Subscriptions' && (
-  <Subscriptions API_BASE={API_BASE} headers={getHeaders()} darkMode={darkMode} />
-)}
+        <Subscriptions
+          API_BASE={API_BASE}
+          headers={getHeaders()}
+          darkMode={darkMode}
+          transactions={transactions}
+          onAddExpense={(modalData) => setActiveModal(modalData)}
+        />
+      )}
 
     </div>
   );

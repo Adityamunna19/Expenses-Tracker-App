@@ -19,6 +19,7 @@ export default function AddExpenseModal({ user, onClose, onSuccess, darkMode, AP
     is_recovery: editData?.is_recovery || false,
     expected_recovery_date: editData?.expected_recovery_date || '',
     is_debt_payment: editData?.is_debt_payment || false,
+    is_subscription: editData?.is_subscription || prefill?.is_subscription || false,
     type: 'debit'
   });
 
@@ -28,7 +29,7 @@ export default function AddExpenseModal({ user, onClose, onSuccess, darkMode, AP
   const [selectedGoalId, setSelectedGoalId] = useState(editData?.goal_id || '');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const categories = ["Food", "Transport","Cafe","Coffee", "Bills", "Shopping", "Entertainment", "Savings", "Goals", "Credit Card Payment","Beauty","Travel","Medicines","Family Maintenance","Fancy","Repairs","Other"];
+  const categories = ["Food", "Transport","Groceries","Cafe","Coffee", "Bills", "Shopping", "Entertainment", "Savings", "Goals", "Credit Card Payment","Beauty","Travel","Medicines","Family Maintenance","Fancy","Repairs","Subscription","Other"];
   const paymentMethods = ["UPI", "Cash", "Card", "Bank Transfer", "NetBanking"];
 
   useEffect(() => {
@@ -44,14 +45,39 @@ export default function AddExpenseModal({ user, onClose, onSuccess, darkMode, AP
   }, [API_BASE, user?.id]);
 
   useEffect(() => {
+    if (editData) {
+      setFormData({
+        title: editData.title || '',
+        amount: editData.amount || '',
+        category: editData.category || 'Food',
+        payment_method: editData.payment_method || 'UPI',
+        account_id: editData.account_id || '',
+        to_account_id: editData.to_account_id || '',
+        date: editData.date || new Date().toISOString().split('T')[0],
+        note: editData.note || '',
+        is_secret: editData.is_secret || false,
+        is_recovery: editData.is_recovery || false,
+        expected_recovery_date: editData.expected_recovery_date || '',
+        is_debt_payment: editData.is_debt_payment || false,
+        is_subscription: editData.is_subscription || false,
+        type: 'debit'
+      });
+      setSelectedGoalId(editData.goal_id || '');
+      return;
+    }
+
     if (prefill && !editData) {
       setFormData(prev => ({
         ...prev,
-        title: prefill.title,
-        amount: prefill.amount,
+        title: prefill.title || prev.title,
+        amount: prefill.amount || prev.amount,
         date: prefill.date || prev.date,
-        payment_method: prefill.payment_method || 'UPI',
-        category: prefill.category || prev.category
+        payment_method: prefill.payment_method || prev.payment_method,
+        category: prefill.category || prev.category,
+        note: prefill.note || prev.note,
+        account_id: prefill.account_id || prev.account_id,
+        to_account_id: prefill.to_account_id || prev.to_account_id,
+        is_subscription: typeof prefill.is_subscription === 'boolean' ? prefill.is_subscription : prev.is_subscription
       }));
     }
   }, [prefill, editData]);
@@ -133,7 +159,8 @@ export default function AddExpenseModal({ user, onClose, onSuccess, darkMode, AP
       "Shopping": ["amazon", "flipkart", "zara", "myntra", "clothes", "shoes", "mall"],
       "Entertainment": ["netflix", "movie", "spotify", "cinema", "prime", "game"],
       "Savings": ["sip", "stocks", "fixed deposit", "fd", "gold", "mutual fund", "mf"],
-      "Credit Card Payment": ["cc payment", "credit card payment", "card payment", "bill payment", "pay cc", "pay card"]
+      "Credit Card Payment": ["cc payment", "credit card payment", "card payment", "bill payment", "pay cc", "pay card"],
+      "Subscription": ["netflix", "spotify", "prime video", "youtube premium", "hotstar", "disney+", "icloud", "gym", "subscription", "membership", "adobe", "canva pro", "notion plus", "github copilot", "chatgpt plus", "midjourney", "hulu", "hbo max", "apple music", "youtube music", "audible"]
     };
 
     for (const [cat, keywords] of Object.entries(dictionary)) {
@@ -232,16 +259,42 @@ export default function AddExpenseModal({ user, onClose, onSuccess, darkMode, AP
             expected_recovery_date: formData.expected_recovery_date || null
           };
 
-      const method = editData && !isCardPaymentTransfer ? 'PUT' : 'POST';
-      const url = editData && !isCardPaymentTransfer ? `${API_BASE}/transactions/${editData.id}` : `${API_BASE}/transactions`;
+      const isEditing = Boolean(editData && !isCardPaymentTransfer);
+      const url = isEditing ? `${API_BASE}/transactions/${editData.id}` : `${API_BASE}/transactions`;
 
-      const res = await fetch(url, {
-        method: method,
+      let res = await fetch(url, {
+        method: isEditing ? 'PATCH' : 'POST',
         headers: { 'Content-Type': 'application/json', 'X-User-ID': user?.id },
         body: JSON.stringify(payload)
       });
+
+      if (isEditing && res.status === 405) {
+        res = await fetch(url, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json', 'X-User-ID': user?.id },
+          body: JSON.stringify(payload)
+        });
+      }
+
+      if (!res.ok) throw new Error("Failed to save transaction");
+
+      let savedTransaction = null;
+      try {
+        savedTransaction = await res.json();
+      } catch {
+        savedTransaction = null;
+      }
+
+      const normalizedTransaction = {
+        ...(editData || {}),
+        ...payload,
+        ...(savedTransaction && typeof savedTransaction === 'object' ? savedTransaction : {}),
+        id: savedTransaction?.id || editData?.id || null,
+        amount: expenseAmount,
+        date: payload.date
+      };
       
-      if (res.ok && formData.category === "Goals" && selectedGoalId && !editData) {
+      if (formData.category === "Goals" && selectedGoalId && !editData) {
         await fetch(`${API_BASE}/goals/${selectedGoalId}/add`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json', 'X-User-ID': user?.id },
@@ -253,7 +306,7 @@ export default function AddExpenseModal({ user, onClose, onSuccess, darkMode, AP
       if (!editData && !isCardPaymentTransfer) {
         const targetBudget = budgets.find(b => b.category.toLowerCase() === formData.category.toLowerCase());
         
-        if (targetBudget && res.ok) {
+        if (targetBudget) {
           const previousSpend = analytics?.categories?.find(
             c => c?.category && c.category.toLowerCase() === formData.category.toLowerCase()
           )?.total || 0;
@@ -274,17 +327,17 @@ export default function AddExpenseModal({ user, onClose, onSuccess, darkMode, AP
           } else {
             toast.success("Expense recorded securely!");
           }
-        } else if (res.ok) {
+        } else {
           toast.success("Expense recorded securely!");
         }
-      } else if (res.ok && !isCardPaymentTransfer) {
+      } else if (!isCardPaymentTransfer) {
         // Simple success for an Edit
         toast.success("Record amended securely!");
-      } else if (res.ok && isCardPaymentTransfer) {
+      } else if (isCardPaymentTransfer) {
         toast.success("Card payment recorded!");
       }
 
-      onSuccess();
+      await onSuccess(normalizedTransaction.id ? normalizedTransaction : null);
       onClose();
     } catch (err) { 
       toast.error("Failed to save"); 
@@ -514,6 +567,15 @@ export default function AddExpenseModal({ user, onClose, onSuccess, darkMode, AP
                 className="w-5 h-5 accent-emerald-600 rounded" 
               />
               <span className="text-[10px] font-black text-emerald-600 uppercase tracking-widest">Debt Repayment?</span>
+            </label>
+            <label className="flex items-center gap-3 cursor-pointer">
+              <input 
+                type="checkbox" 
+                checked={formData.is_subscription} 
+                onChange={(e) => setFormData({...formData, is_subscription: e.target.checked})} 
+                className="w-5 h-5 accent-violet-600 rounded" 
+              />
+              <span className="text-[10px] font-black text-violet-600 uppercase tracking-widest">Recurring / Subscription?</span>
             </label>
           </div>
 
