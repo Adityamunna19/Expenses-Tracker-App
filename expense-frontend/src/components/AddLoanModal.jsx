@@ -5,24 +5,24 @@ import toast from 'react-hot-toast';
 export default function AddLoanModal({ user, onClose, onSuccess, darkMode, API_BASE, accounts = [] }) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const loanCategories = [
-  "Personal Loan", 
-  "Gold Loan", 
-  "Education Loan", 
-  "Home Loan", 
-  "Vehicle Loan", 
-  "Credit Card EMI",
-  "Business Loan"
-];
+    "Personal Loan",
+    "Gold Loan",
+    "Education Loan",
+    "Home Loan",
+    "Vehicle Loan",
+    "Credit Card EMI",
+    "Business Loan"
+  ];
   const [formData, setFormData] = useState({
-    title: '', // Lender Name
+    title: '',
     amount: '',
-    loan_category: 'Personal Loan',
+    category: 'Personal Loan',
+    payment_method: 'Bank Transfer',
     account_id: '',
     date: new Date().toISOString().split('T')[0],
     note: '',
-    type: 'credit', // It acts as a credit because the money goes into your account
-    is_loan: true,  // Crucial flag for your Debts page to track it
-    is_recovered: false // Means you haven't paid it back yet
+    type: 'credit',
+    is_debt_payment: true
   });
 
   const handleSubmit = async (e) => {
@@ -34,9 +34,11 @@ export default function AddLoanModal({ user, onClose, onSuccess, darkMode, API_B
     setIsSubmitting(true);
     try {
       const payload = { 
-        ...formData, 
+        ...formData,
         amount: parseFloat(formData.amount),
-        user_id: user?.id 
+        user_id: user?.id,
+        goal_id: null,
+        note: formData.note || null
       };
 
       const res = await fetch(`${API_BASE}/transactions`, {
@@ -45,13 +47,26 @@ export default function AddLoanModal({ user, onClose, onSuccess, darkMode, API_B
         body: JSON.stringify(payload)
       });
 
-      if (!res.ok) throw new Error("Failed to save loan");
+      if (!res.ok) {
+        let errorMessage = "Failed to save loan";
+        try {
+          const errorBody = await res.json();
+          if (typeof errorBody?.detail === 'string') {
+            errorMessage = errorBody.detail;
+          } else if (Array.isArray(errorBody?.detail) && errorBody.detail.length > 0) {
+            errorMessage = errorBody.detail.map((item) => item?.msg).filter(Boolean).join(', ') || errorMessage;
+          }
+        } catch {
+          // Ignore JSON parse errors and keep the generic message
+        }
+        throw new Error(errorMessage);
+      }
       
       toast.success("Loan recorded! Bank balance updated.", { icon: '🏦' });
       onSuccess();
       onClose();
     } catch (err) {
-      toast.error("Failed to record loan");
+      toast.error(err.message || "Failed to record loan");
     } finally {
       setIsSubmitting(false);
     }
@@ -96,15 +111,15 @@ export default function AddLoanModal({ user, onClose, onSuccess, darkMode, API_B
             />
           </div>
           <div>
-  <label className={labelClass}>Loan Category</label>
-  <select 
-    value={formData.loan_category} 
-    onChange={(e) => setFormData({...formData, loan_category: e.target.value})} 
-    className={inputClass}
-  >
-    {loanCategories.map(cat => <option key={cat} value={cat}>{cat}</option>)}
-  </select>
-</div>
+            <label className={labelClass}>Loan Category</label>
+            <select
+              value={formData.category}
+              onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+              className={inputClass}
+            >
+              {loanCategories.map(cat => <option key={cat} value={cat}>{cat}</option>)}
+            </select>
+          </div>
           <div className="flex gap-4">
             <div className="flex-1">
               <label className={labelClass}>Principal Amount</label>
