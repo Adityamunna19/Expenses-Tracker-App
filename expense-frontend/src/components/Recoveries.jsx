@@ -1,5 +1,6 @@
 import { Undo2, CheckCircle, Clock } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { resolveMerchantName } from '../utils/financeConfig';
 
 export default function Recoveries({ transactions, onSuccess, darkMode, API_BASE, headers }) {
   // Filter for debits that are meant to be recovered but haven't been yet
@@ -16,7 +17,7 @@ export default function Recoveries({ transactions, onSuccess, darkMode, API_BASE
       
       toast.success("Funds Recovered & Added to Income!", { id: loadingToast });
       onSuccess(); // Refresh all data in App.jsx
-    } catch (err) {
+    } catch {
       toast.error("Error resolving recovery", { id: loadingToast });
     }
   };
@@ -41,7 +42,7 @@ export default function Recoveries({ transactions, onSuccess, darkMode, API_BASE
             return (
               <div key={t.id} className={`p-6 rounded-[2rem] flex flex-col md:flex-row justify-between items-center gap-6 shadow-lg border-2 ${darkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-transparent'}`}>
                 <div>
-                  <h3 className="text-xl font-black">{t.title}</h3>
+                  <h3 className="text-xl font-black">{resolveMerchantName(t.title)}</h3>
                   <div className="flex items-center gap-3 mt-1">
                     <span className="text-rose-500 font-black text-lg">₹{t.amount.toLocaleString()}</span>
                     {t.expected_recovery_date && (

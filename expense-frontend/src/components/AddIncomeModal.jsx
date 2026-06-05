@@ -1,29 +1,45 @@
 import { useState, useEffect } from 'react';
 import { X, Loader2, Sparkles, Building2, CreditCard, FileText } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { DEFAULT_INCOME_CATEGORIES, resolveMerchantName } from '../utils/financeConfig';
 
 // 👇 1. ADDED editData = null TO PROPS
-export default function AddIncomeModal({ user, onClose, onSuccess, darkMode, API_BASE, accounts = [], prefill = null, editData = null }) {
+export default function AddIncomeModal({
+  user,
+  onClose,
+  onSuccess,
+  darkMode,
+  API_BASE,
+  accounts = [],
+  prefill = null,
+  editData = null,
+  categories = [],
+}) {
   
   // 👇 2. UPDATED STATE TO PULL FROM editData OR prefill
   const [formData, setFormData] = useState({
     title: editData?.title || prefill?.title || '',
     amount: editData?.amount || prefill?.amount || '', 
-    category: editData?.category || prefill?.category || 'Income', 
+    category: editData?.category || prefill?.category || 'Salary', 
     payment_method: editData?.payment_method || prefill?.payment_method || 'Bank Transfer',
     account_id: editData?.account_id || prefill?.account_id || '',
     date: editData?.date || prefill?.date || new Date().toISOString().split('T')[0],
     note: editData?.note || prefill?.note || '', 
     is_secret: editData?.is_secret || false, 
     type: 'credit',
-    is_debt_payment: editData?.is_debt_payment || false
+    is_debt_payment: editData?.is_debt_payment || false,
+    is_savings_withdrawal: editData?.is_savings_withdrawal || false
   });
 
   const [smartInput, setSmartInput] = useState('');
   const [isSmartLoading, setIsSmartLoading] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const categories = ["Salary", "Refund","Intrest", "Gift", "Other", "Maintenance","Self"];
+  const categoryOptions = categories.length > 0 ? categories : DEFAULT_INCOME_CATEGORIES;
+  const selectableCategories =
+    formData.category && !categoryOptions.some((category) => category.toLowerCase() === formData.category.toLowerCase())
+      ? [...categoryOptions, formData.category]
+      : categoryOptions;
   const paymentMethods = ["UPI", "Cash", "Card", "Bank Transfer"];
 
   useEffect(() => {
@@ -58,14 +74,14 @@ export default function AddIncomeModal({ user, onClose, onSuccess, darkMode, API
         
         setFormData(prev => ({
           ...prev, 
-          title: parsed.title || prev.title, 
+          title: resolveMerchantName(parsed.title || prev.title), 
           amount: parsed.amount || prev.amount, 
           category: parsed.category || prev.category,
         }));
 
         toast.success("Details filled!", { id: loadingToast });
         setSmartInput('');
-      } catch (err) { 
+      } catch { 
         toast.error("Couldn't parse that.", { id: loadingToast }); 
       } finally { 
         setIsSmartLoading(false); 
@@ -81,10 +97,12 @@ export default function AddIncomeModal({ user, onClose, onSuccess, darkMode, API
     try {
       const payload = { 
         ...formData, 
+        title: resolveMerchantName(formData.title),
         amount: parseFloat(formData.amount), 
         user_id: user?.id, 
         goal_id: null,
-        account_id: formData.account_id || null
+        account_id: formData.account_id || null,
+        is_savings_withdrawal: formData.category === 'Savings',
       };
 
       const isEditing = Boolean(editData);
@@ -125,7 +143,7 @@ export default function AddIncomeModal({ user, onClose, onSuccess, darkMode, API
       toast.success(editData ? "Income amended securely!" : "Income recorded");
       await onSuccess(normalizedTransaction.id ? normalizedTransaction : null);
       onClose();
-    } catch (err) { 
+    } catch { 
       toast.error("Failed to save"); 
     } finally { 
       setIsSubmitting(false); 
@@ -193,7 +211,7 @@ export default function AddIncomeModal({ user, onClose, onSuccess, darkMode, API
                 onChange={(e) => setFormData({...formData, category: e.target.value})} 
                 className={inputClass}
               >
-                {categories.map(cat => <option key={cat} value={cat}>{cat}</option>)}
+                {selectableCategories.map(cat => <option key={cat} value={cat}>{cat}</option>)}
               </select>
             </div>
           </div>
@@ -288,6 +306,11 @@ export default function AddIncomeModal({ user, onClose, onSuccess, darkMode, API
                 Is this borrowed money? (Adds to Debts)
               </span>
             </label>
+            {formData.category === 'Savings' && (
+              <p className="mt-3 text-[10px] font-black uppercase tracking-widest text-emerald-600">
+                Savings withdrawals reduce the total savings balance.
+              </p>
+            )}
           </div>
 
           <button 

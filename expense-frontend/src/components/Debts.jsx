@@ -1,25 +1,47 @@
-import { Landmark, ArrowUpRight,Calculator } from 'lucide-react';
+import { useMemo } from 'react';
+import { Landmark, ArrowUpRight, Calculator } from 'lucide-react';
+import { getLoanBucketName } from '../utils/financeConfig';
 
 export default function Debts({ transactions, darkMode, onAddDebt, onOpenCalculator }) {
-  // 1. Base Debt - Set to 0 so no "ghost" numbers appear
-  const INITIAL_DEBT = 0;
+  const debtTransactions = transactions.filter((tx) => tx.is_debt_payment);
 
-  // 2. Calculate DEBT PAID (Debits marked as debt)
-  const totalPaid = transactions
-    .filter(tx => tx.is_debt_payment && tx.type === 'debit')
-    .reduce((sum, tx) => sum + tx.amount, 0);
+  const debtSummary = useMemo(() => {
+    const groups = new Map();
 
-  // 3. Calculate NEW DEBT TAKEN (Credits marked as debt)
-  const newDebtTaken = transactions
-    .filter(tx => tx.is_debt_payment && tx.type === 'credit')
-    .reduce((sum, tx) => sum + tx.amount, 0);
+    debtTransactions.forEach((tx) => {
+      const bucketName = getLoanBucketName(tx);
+      if (!groups.has(bucketName)) {
+        groups.set(bucketName, { name: bucketName, borrowed: 0, repaid: 0, transactions: [] });
+      }
 
-  // 4. Calculate Final Numbers
-  const totalDebtBasis = INITIAL_DEBT + newDebtTaken;
-  const remainingDebt = totalDebtBasis - totalPaid;
-  const progressPercent = totalDebtBasis > 0 
-    ? Math.min((totalPaid / totalDebtBasis) * 100, 100).toFixed(1) 
-    : 0;
+      const group = groups.get(bucketName);
+      const amount = Number(tx.amount) || 0;
+      group.transactions.push(tx);
+
+      if (tx.type === 'credit') {
+        group.borrowed += amount;
+      } else if (tx.type === 'debit') {
+        group.repaid += amount;
+      }
+    });
+
+    return Array.from(groups.values()).map((group) => {
+      const remaining = Math.max(0, group.borrowed - group.repaid);
+      const progress = group.borrowed > 0 ? Math.min((group.repaid / group.borrowed) * 100, 100) : 0;
+      return { ...group, remaining, progress };
+    });
+  }, [debtTransactions]);
+
+  const totalBorrowed = debtTransactions
+    .filter((tx) => tx.type === 'credit')
+    .reduce((sum, tx) => sum + (Number(tx.amount) || 0), 0);
+
+  const totalRepaid = debtTransactions
+    .filter((tx) => tx.type === 'debit')
+    .reduce((sum, tx) => sum + (Number(tx.amount) || 0), 0);
+
+  const remainingDebt = Math.max(0, totalBorrowed - totalRepaid);
+  const progressPercent = totalBorrowed > 0 ? Math.min((totalRepaid / totalBorrowed) * 100, 100).toFixed(1) : 0;
 
   return (
     <div className="animate-in fade-in slide-in-from-bottom-6 duration-700 max-w-4xl mx-auto pb-10">
@@ -68,11 +90,11 @@ export default function Debts({ transactions, darkMode, onAddDebt, onOpenCalcula
             
             <div className="flex items-center gap-4 mb-8">
                <p className="text-slate-400 font-black tracking-widest uppercase text-[10px]">
-                 Base Debt: ₹{INITIAL_DEBT.toLocaleString()}
+                 Borrowed: ₹{totalBorrowed.toLocaleString()}
                </p>
-               {newDebtTaken > 0 && (
+               {totalRepaid > 0 && (
                  <p className="text-rose-400 font-black tracking-widest uppercase text-[10px] flex items-center gap-1">
-                   <ArrowUpRight size={12} /> +₹{newDebtTaken.toLocaleString()} Borrowed
+                   <ArrowUpRight size={12} /> Repaid: ₹{totalRepaid.toLocaleString()}
                  </p>
                )}
             </div>
@@ -80,7 +102,7 @@ export default function Debts({ transactions, darkMode, onAddDebt, onOpenCalcula
             <div className="grid grid-cols-2 gap-8 mb-8">
               <div className="bg-slate-50 p-6 rounded-[2rem]">
                 <p className="text-slate-400 font-bold text-xs uppercase tracking-widest mb-1">Total Paid</p>
-                <p className="text-3xl font-black text-emerald-500">₹{totalPaid.toLocaleString()}</p>
+                <p className="text-3xl font-black text-emerald-500">₹{totalRepaid.toLocaleString()}</p>
               </div>
               <div className="bg-rose-50 p-6 rounded-[2rem]">
                 <p className="text-rose-400 font-bold text-xs uppercase tracking-widest mb-1">Remaining</p>
@@ -96,6 +118,55 @@ export default function Debts({ transactions, darkMode, onAddDebt, onOpenCalcula
             </div>
           </div>
         </div>
+      </div>
+
+      <div className="px-4 mt-10">
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h3 className="text-2xl font-black tracking-tight">Loan Buckets</h3>
+            <p className="text-sm font-bold opacity-50">Track each lender separately</p>
+          </div>
+        </div>
+
+        {debtSummary.length === 0 ? (
+          <div className="py-20 text-center font-black opacity-30 text-lg uppercase italic tracking-widest border-2 border-dashed rounded-[3rem]">
+            No debt buckets yet
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {debtSummary.map((bucket) => (
+              <div key={bucket.name} className={`p-8 rounded-[2.5rem] shadow-lg border-2 ${darkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-transparent'}`}>
+                <div className="flex justify-between items-start mb-5">
+                  <div>
+                    <p className="text-[10px] font-black uppercase tracking-[0.3em] opacity-40 mb-2">Loan Account</p>
+                    <h4 className="text-2xl font-black tracking-tight">{bucket.name}</h4>
+                  </div>
+                  <span className="text-xs font-black bg-emerald-100 text-emerald-700 px-4 py-2 rounded-full uppercase tracking-widest">
+                    {bucket.progress.toFixed(0)}% Paid
+                  </span>
+                </div>
+
+                <div className={`w-full h-4 rounded-full p-1 mb-5 ${darkMode ? 'bg-slate-900' : 'bg-slate-100'}`}>
+                  <div
+                    className="h-full rounded-full bg-amber-500 transition-all duration-1000 shadow-[0_0_15px_rgba(245,158,11,0.35)]"
+                    style={{ width: `${bucket.progress}%` }}
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="bg-slate-50 dark:bg-slate-900/60 p-4 rounded-2xl">
+                    <p className="text-[10px] font-black uppercase tracking-widest opacity-40 mb-1">Borrowed</p>
+                    <p className="text-xl font-black text-rose-500">₹{bucket.borrowed.toLocaleString()}</p>
+                  </div>
+                  <div className="bg-slate-50 dark:bg-slate-900/60 p-4 rounded-2xl">
+                    <p className="text-[10px] font-black uppercase tracking-widest opacity-40 mb-1">Remaining</p>
+                    <p className="text-xl font-black text-emerald-500">₹{bucket.remaining.toLocaleString()}</p>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );

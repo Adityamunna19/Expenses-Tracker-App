@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { X, Loader2, Landmark, AlertCircle } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { resolveMerchantName } from '../utils/financeConfig';
 
 export default function AddLoanModal({ user, onClose, onSuccess, darkMode, API_BASE, accounts = [] }) {
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -35,6 +36,8 @@ export default function AddLoanModal({ user, onClose, onSuccess, darkMode, API_B
     try {
       const payload = { 
         ...formData,
+        title: resolveMerchantName(formData.title),
+        loan_account_name: resolveMerchantName(formData.title),
         amount: parseFloat(formData.amount),
         user_id: user?.id,
         goal_id: null,

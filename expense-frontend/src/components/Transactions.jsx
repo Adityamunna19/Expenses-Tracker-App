@@ -1,5 +1,6 @@
 import { Search, Trash2, Edit3, Download, Filter, Receipt, ArrowRightLeft } from 'lucide-react';
 import { formatStoredDate } from '../utils';
+import { resolveMerchantName } from '../utils/financeConfig';
 
 export default function Transactions({ 
   transactions, 
@@ -20,7 +21,7 @@ export default function Transactions({
     const headers = ["Date", "Title", "Type", "Amount", "Category", "Mode"];
     const rows = sortedTransactions.map(tx => [
       tx.date || '',
-      tx.title,
+      resolveMerchantName(tx.title),
       tx.type,
       tx.amount,
       tx.category,
@@ -115,7 +116,7 @@ export default function Transactions({
 
                 <div>
                   <h5 className={`text-lg font-black tracking-tight ${darkMode ? 'text-white' : 'text-slate-900'}`}>
-                    {tx.title}
+                    {resolveMerchantName(tx.title)}
                   </h5>
                   <div className="flex flex-wrap items-center gap-2 mt-1">
                     <span className={`text-[10px] font-black px-3 py-1 rounded-full uppercase tracking-widest ${

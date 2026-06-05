@@ -1,6 +1,7 @@
 import React from 'react';
 import { X, History, ArrowUpRight, ArrowDownLeft, ArrowRightLeft } from 'lucide-react';
 import { formatStoredDate } from '../utils';
+import { resolveMerchantName } from '../utils/financeConfig';
 
 export default function CardTransactionsModal({ card, transactions = [], onClose, darkMode }) {
   if (!card) return null;
@@ -30,7 +31,10 @@ export default function CardTransactionsModal({ card, transactions = [], onClose
           <div className="space-y-3">
             {cardTransactions.length > 0 ? (
               cardTransactions.map((tx) => {
-                let isPayment = tx.type === 'transfer' && tx.to_account_id === card.id;
+                let isPayment =
+                  (tx.type === 'transfer' && tx.to_account_id === card.id) ||
+                  (tx.category === 'Credit Card Payment' && tx.to_account_id === card.id) ||
+                  tx.is_card_payment;
                 let isRefund = tx.type === 'credit';
                 let isPositive = isPayment || isRefund;
                 
@@ -45,7 +49,7 @@ export default function CardTransactionsModal({ card, transactions = [], onClose
                         <Icon size={18} />
                       </div>
                       <div>
-                        <p className={`font-black text-sm ${darkMode ? 'text-slate-200' : 'text-slate-800'}`}>{tx.title}</p>
+                        <p className={`font-black text-sm ${darkMode ? 'text-slate-200' : 'text-slate-800'}`}>{resolveMerchantName(tx.title)}</p>
                         <p className="text-[10px] font-bold opacity-40 uppercase tracking-wider">
                           {formatStoredDate(tx.date || tx.created_at, { year: false })} • {tx.category}
                         </p>

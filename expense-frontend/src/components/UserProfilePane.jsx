@@ -1,11 +1,29 @@
-import { useState } from 'react';
-import { X, Building2, CreditCard, Trash2, Plus, Loader2, LogOut } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { X, Building2, CreditCard, Trash2, Plus, Loader2, LogOut, ShieldCheck, Sparkles } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { supabase } from '../supabaseClient';
+import AnnouncementAdminModal from './AnnouncementAdminModal';
 
-export default function UserProfilePane({ user, accounts, onClose, onSuccess, darkMode, API_BASE, onLogout }) {
+export default function UserProfilePane({
+  user,
+  accounts,
+  onClose,
+  onSuccess,
+  darkMode,
+  API_BASE,
+  onLogout,
+  categoryPreferences = { expenseCustom: [], incomeCustom: [] },
+  onAddCategory,
+  onRemoveCategory,
+}) {
   const [isAdding, setIsAdding] = useState(false);
   const [newAcc, setNewAcc] = useState({ name: '', type: 'bank' });
   const [loading, setLoading] = useState(false);
+  const [newCategory, setNewCategory] = useState('');
+  const [categoryScope, setCategoryScope] = useState('expense');
+  const [isAnnouncementAdmin, setIsAnnouncementAdmin] = useState(false);
+  const [checkingAnnouncementAdmin, setCheckingAnnouncementAdmin] = useState(true);
+  const [isAnnouncementManagerOpen, setIsAnnouncementManagerOpen] = useState(false);
 
   const handleDelete = async (id) => {
     if (!window.confirm("Are you sure you want to remove this account?")) return;
@@ -16,7 +34,7 @@ export default function UserProfilePane({ user, accounts, onClose, onSuccess, da
       });
       toast.success("Account removed");
       onSuccess();
-    } catch (err) {
+    } catch {
       toast.error("Failed to delete account");
     }
   };
@@ -41,7 +59,7 @@ export default function UserProfilePane({ user, accounts, onClose, onSuccess, da
       setNewAcc({ name: '', type: 'bank' });
       setIsAdding(false);
       onSuccess();
-    } catch (err) {
+    } catch {
       toast.error("Failed to add account");
     } finally {
       setLoading(false);
@@ -50,6 +68,70 @@ export default function UserProfilePane({ user, accounts, onClose, onSuccess, da
 
   const panelBg = darkMode ? 'bg-slate-900 border-l border-slate-800 text-white' : 'bg-[#f4f6f8] text-slate-900';
   const cardBg = darkMode ? 'bg-slate-800' : 'bg-white';
+  const expenseCustomCategories = categoryPreferences?.expenseCustom || [];
+  const incomeCustomCategories = categoryPreferences?.incomeCustom || [];
+  const firstName = user?.user_metadata?.first_name || '';
+
+  const handleAddCategory = (e) => {
+    e.preventDefault();
+    if (!newCategory.trim()) return toast.error('Enter a category name');
+
+    onAddCategory?.(categoryScope, newCategory.trim());
+    setNewCategory('');
+  };
+
+  useEffect(() => {
+    let isCancelled = false;
+
+    const checkAnnouncementAdmin = async () => {
+      if (!user?.id || !supabase) {
+        setIsAnnouncementAdmin(false);
+        setCheckingAnnouncementAdmin(false);
+        return;
+      }
+
+      setCheckingAnnouncementAdmin(true);
+
+      try {
+        const { data, error } = await supabase.rpc('is_announcement_admin');
+        if (error) throw error;
+        if (!isCancelled) {
+          setIsAnnouncementAdmin(Boolean(data));
+        }
+      } catch (error) {
+        console.error('Failed to check announcement admin access:', error);
+        if (!isCancelled) {
+          setIsAnnouncementAdmin(false);
+        }
+      } finally {
+        if (!isCancelled) {
+          setCheckingAnnouncementAdmin(false);
+        }
+      }
+    };
+
+    checkAnnouncementAdmin();
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [user?.id]);
+
+  const handleClaimAnnouncementAdmin = async () => {
+    if (!supabase) return;
+
+    try {
+      const { data, error } = await supabase.rpc('claim_announcement_admin');
+      if (error) throw error;
+      if (data) {
+        setIsAnnouncementAdmin(true);
+        toast.success('Announcement admin access claimed');
+      }
+    } catch (error) {
+      console.error('Failed to claim announcement admin access:', error);
+      toast.error(error?.message || 'Could not claim announcement access');
+    }
+  };
 
   return (
     <>
@@ -158,6 +240,152 @@ export default function UserProfilePane({ user, accounts, onClose, onSuccess, da
             </div>
           </div>
 
+          {/* Custom Categories Section */}
+          <div>
+            <div className="flex justify-between items-end mb-6">
+              <h3 className="text-lg font-black uppercase tracking-widest opacity-40">Personal Categories</h3>
+              <p className="text-[10px] font-black uppercase tracking-[0.2em] opacity-30">Per user</p>
+            </div>
+
+            <form onSubmit={handleAddCategory} className={`p-5 rounded-2xl border-2 border-indigo-500/20 mb-5 ${darkMode ? 'bg-indigo-950/20' : 'bg-indigo-50'}`}>
+              <div className="flex gap-3 mb-4">
+                <input
+                  type="text"
+                  placeholder="e.g. Weekend Trip"
+                  value={newCategory}
+                  onChange={(e) => setNewCategory(e.target.value)}
+                  className={`flex-1 p-3 rounded-xl text-sm font-bold outline-none border ${darkMode ? 'bg-slate-900 border-slate-700 focus:border-indigo-500' : 'bg-white border-slate-200 focus:border-indigo-500'}`}
+                />
+                <select
+                  value={categoryScope}
+                  onChange={(e) => setCategoryScope(e.target.value)}
+                  className={`p-3 rounded-xl text-sm font-bold outline-none border ${darkMode ? 'bg-slate-900 border-slate-700' : 'bg-white border-slate-200'}`}
+                >
+                  <option value="expense">Expense</option>
+                  <option value="income">Income</option>
+                </select>
+              </div>
+              <button
+                type="submit"
+                className="w-full py-3 text-xs font-black text-white bg-indigo-600 rounded-xl flex justify-center items-center gap-2"
+              >
+                <Plus size={14} />
+                Save Category
+              </button>
+            </form>
+
+            <div className="space-y-4">
+              <div>
+                <p className="text-[10px] font-black uppercase tracking-[0.25em] opacity-40 mb-3">Expense Custom</p>
+                <div className="flex flex-wrap gap-2">
+                  {expenseCustomCategories.length > 0 ? (
+                    expenseCustomCategories.map((category) => (
+                      <span key={category} className={`inline-flex items-center gap-2 px-3 py-2 rounded-full text-xs font-black ${darkMode ? 'bg-slate-800' : 'bg-white'} shadow-sm`}>
+                        {category}
+                        <button
+                          type="button"
+                          onClick={() => onRemoveCategory?.('expense', category)}
+                          className="text-rose-500 hover:text-rose-600"
+                        >
+                          <Trash2 size={12} />
+                        </button>
+                      </span>
+                    ))
+                  ) : (
+                    <p className="text-xs font-bold opacity-40">No custom expense categories yet.</p>
+                  )}
+                </div>
+              </div>
+
+              <div>
+                <p className="text-[10px] font-black uppercase tracking-[0.25em] opacity-40 mb-3">Income Custom</p>
+                <div className="flex flex-wrap gap-2">
+                  {incomeCustomCategories.length > 0 ? (
+                    incomeCustomCategories.map((category) => (
+                      <span key={category} className={`inline-flex items-center gap-2 px-3 py-2 rounded-full text-xs font-black ${darkMode ? 'bg-slate-800' : 'bg-white'} shadow-sm`}>
+                        {category}
+                        <button
+                          type="button"
+                          onClick={() => onRemoveCategory?.('income', category)}
+                          className="text-rose-500 hover:text-rose-600"
+                        >
+                          <Trash2 size={12} />
+                        </button>
+                      </span>
+                    ))
+                  ) : (
+                    <p className="text-xs font-bold opacity-40">No custom income categories yet.</p>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Announcement Admin Section */}
+          <div>
+            <div className="flex justify-between items-end mb-6">
+              <h3 className="text-lg font-black uppercase tracking-widest opacity-40">Announcements</h3>
+              {checkingAnnouncementAdmin ? (
+                <span className="text-[10px] font-black uppercase tracking-[0.25em] opacity-40">Checking</span>
+              ) : isAnnouncementAdmin ? (
+                <span className="inline-flex items-center gap-2 rounded-full bg-emerald-500/10 px-3 py-1 text-[10px] font-black uppercase tracking-[0.25em] text-emerald-600">
+                  <ShieldCheck size={12} />
+                  Admin
+                </span>
+              ) : (
+                <span className="text-[10px] font-black uppercase tracking-[0.25em] opacity-30">Locked</span>
+              )}
+            </div>
+
+            <div className={`p-5 rounded-2xl border-2 ${darkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'} shadow-sm`}>
+              {isAnnouncementAdmin ? (
+                <div className="space-y-3">
+                  <div className="flex items-start gap-3">
+                    <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-indigo-600/10 text-indigo-600">
+                      <Sparkles size={18} />
+                    </div>
+                    <div>
+                      <p className="font-black">Publish announcements</p>
+                      <p className="text-xs font-medium opacity-60">
+                        Create the next login popup and keep the announcement history in Supabase.
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setIsAnnouncementManagerOpen(true)}
+                    className="w-full py-3 text-xs font-black text-white bg-indigo-600 rounded-xl flex justify-center items-center gap-2"
+                  >
+                    <Plus size={14} />
+                    Manage Announcements
+                  </button>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  <div className="flex items-start gap-3">
+                    <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-amber-500/10 text-amber-500">
+                      <ShieldCheck size={18} />
+                    </div>
+                    <div>
+                      <p className="font-black">Claim announcement admin</p>
+                      <p className="text-xs font-medium opacity-60">
+                        Claim the single publishing account for announcements.
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleClaimAnnouncementAdmin}
+                    className="w-full py-3 text-xs font-black text-white bg-slate-900 rounded-xl flex justify-center items-center gap-2"
+                  >
+                    <ShieldCheck size={14} />
+                    Claim access
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+
           {/* LOGOUT BUTTON - Moved here from App.jsx */}
           <div className="pt-8 border-t border-slate-200 dark:border-slate-700">
             <button 
@@ -174,6 +402,13 @@ export default function UserProfilePane({ user, accounts, onClose, onSuccess, da
 
         </div>
       </div>
+
+      {isAnnouncementManagerOpen && (
+        <AnnouncementAdminModal
+          darkMode={darkMode}
+          onClose={() => setIsAnnouncementManagerOpen(false)}
+        />
+      )}
     </>
   );
 }

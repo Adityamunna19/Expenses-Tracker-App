@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { RefreshCw, Calendar, AlertCircle, Plus, CreditCard, Tag, LogIn } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { resolveMerchantName } from '../utils/financeConfig';
 
 export default function Subscriptions({ API_BASE, headers, darkMode, onAddExpense, transactions = [] }) {
   const [data, setData] = useState({ monthly_burn: 0, subscriptions: [] });
@@ -11,8 +12,8 @@ export default function Subscriptions({ API_BASE, headers, darkMode, onAddExpens
       const res = await fetch(`${API_BASE}/subscriptions`, { headers });
       const result = await res.json();
       setData(result);
-    } catch (err) {
-      console.error("Failed to fetch subscriptions:", err);
+    } catch (error) {
+      console.error("Failed to fetch subscriptions:", error);
     } finally {
       setLoading(false);
     }
@@ -25,12 +26,13 @@ export default function Subscriptions({ API_BASE, headers, darkMode, onAddExpens
   const manualSubscriptions = transactions
     .filter((tx) => tx.type === 'debit' && (tx.is_subscription || tx.category === 'Subscription'))
     .reduce((acc, tx) => {
-      const key = `${(tx.title || '').trim().toLowerCase()}::${Number(tx.amount) || 0}::${tx.category || 'Subscription'}`;
+      const merchantName = resolveMerchantName(tx.title || 'Subscription');
+      const key = `${merchantName.trim().toLowerCase()}::${Number(tx.amount) || 0}::${tx.category || 'Subscription'}`;
 
       if (!acc[key]) {
         acc[key] = {
           id: `manual-${tx.id}`,
-          merchant: tx.title || 'Subscription',
+          merchant: merchantName,
           amount: Number(tx.amount) || 0,
           category: tx.category || 'Subscription',
           frequency: 'manual',
@@ -53,7 +55,7 @@ export default function Subscriptions({ API_BASE, headers, darkMode, onAddExpens
   const mergedSubscriptions = [...data.subscriptions];
   Object.values(manualSubscriptions).forEach((manualSub) => {
     const alreadyPresent = mergedSubscriptions.some((sub) => {
-      const merchantMatch = (sub.merchant || '').trim().toLowerCase() === manualSub.merchant.trim().toLowerCase();
+      const merchantMatch = resolveMerchantName(sub.merchant || '').trim().toLowerCase() === manualSub.merchant.trim().toLowerCase();
       const amountMatch = Number(sub.amount) === manualSub.amount;
       return merchantMatch && amountMatch;
     });
@@ -83,7 +85,7 @@ export default function Subscriptions({ API_BASE, headers, darkMode, onAddExpens
       onAddExpense({
         type: 'debit',
         prefill: {
-          title: sub.merchant,
+          title: resolveMerchantName(sub.merchant),
           amount: sub.amount,
           category: sub.category || 'Subscription',
           is_subscription: true,
@@ -204,7 +206,7 @@ export default function Subscriptions({ API_BASE, headers, darkMode, onAddExpens
                       <Calendar size={24} />
                     </div>
                     <div className="min-w-0">
-                      <h4 className="font-bold text-lg truncate">{sub.merchant}</h4>
+                      <h4 className="font-bold text-lg truncate">{resolveMerchantName(sub.merchant)}</h4>
                       <div className="flex flex-wrap items-center gap-2 mt-1">
                         <span className={`text-[10px] font-black px-2.5 py-0.5 rounded-full uppercase tracking-widest ${getCategoryColor(sub.category)}`}>
                           <Tag size={10} className="inline mr-1" />{sub.category || 'Subscription'}

@@ -10,7 +10,10 @@ export const parseSmartInput = (inputText) => {
     'Food': ['tiffin', 'breakfast', 'lunch', 'dinner', 'coffee', 'chai', 'zomato', 'swiggy', 'grocery', 'darshan'],
     'Travel': ['uber', 'ola', 'auto', 'metro', 'bus', 'train', 'petrol', 'cab'],
     'Shopping': ['amazon', 'flipkart', 'myntra', 'clothes', 'shoes', 'mall'],
-    'Bills': ['wifi', 'electricity', 'recharge', 'phone', 'water']
+    'Bills': ['wifi', 'electricity', 'recharge', 'phone', 'water'],
+    'Savings': ['groww', 'sip', 'stocks', 'fixed deposit', 'fd', 'gold', 'mutual fund', 'mf'],
+    'Smoking': ['smoking', 'cigarette', 'cigarettes', 'tobacco'],
+    'Drinking': ['drinking', 'drink', 'beer', 'liquor', 'alcohol', 'whisky', 'wine'],
   };
 
   // 3. Find the Category
@@ -86,7 +89,11 @@ export const getCardBalanceSnapshot = (cardId, transactions = []) => {
 
   relevantTransactions.forEach((tx) => {
     const amount = Number(tx.amount) || 0;
-    const isPayment = (tx.to_account_id === cardId && tx.type === 'transfer') || (tx.account_id === cardId && tx.type === 'credit');
+    const isPayment =
+      (tx.to_account_id === cardId && tx.type === 'transfer') ||
+      (tx.to_account_id === cardId && tx.category === 'Credit Card Payment') ||
+      tx.is_card_payment ||
+      (tx.account_id === cardId && tx.type === 'credit');
 
     if (isPayment) {
       totalPaid += amount;

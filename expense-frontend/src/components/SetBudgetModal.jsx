@@ -1,12 +1,19 @@
 import { useState } from 'react';
 import { X, Loader2, Target } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { DEFAULT_EXPENSE_CATEGORIES } from '../utils/financeConfig';
 
-export default function SetBudgetModal({ user, onClose, onSuccess, darkMode, API_BASE }) {
+export default function SetBudgetModal({ user, onClose, onSuccess, darkMode, API_BASE, categories = [] }) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formData, setFormData] = useState({ category: 'Food', monthly_limit: '' });
 
-  const categories = ["Food", "Transport", "Entertainment", "Shopping", "Bills", "Groceries", "Health"];
+  const budgetCategories = categories.length > 0
+    ? categories
+    : DEFAULT_EXPENSE_CATEGORIES.filter((category) => !['Savings', 'Goals', 'Credit Card Payment', 'Other'].includes(category));
+  const selectableCategories =
+    formData.category && !budgetCategories.some((category) => category.toLowerCase() === formData.category.toLowerCase())
+      ? [...budgetCategories, formData.category]
+      : budgetCategories;
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -26,7 +33,7 @@ export default function SetBudgetModal({ user, onClose, onSuccess, darkMode, API
       toast.success("Budget target locked in!", { icon: '🎯' });
       onSuccess();
       onClose();
-    } catch (err) {
+    } catch {
       toast.error("Failed to set budget");
     } finally {
       setIsSubmitting(false);
@@ -55,7 +62,7 @@ export default function SetBudgetModal({ user, onClose, onSuccess, darkMode, API
           <div>
             <label className={`block text-[10px] font-black uppercase tracking-widest mb-2 ${darkMode ? 'text-slate-400' : 'text-slate-500'}`}>Category</label>
             <select value={formData.category} onChange={(e) => setFormData({...formData, category: e.target.value})} className={inputClass}>
-              {categories.map(c => <option key={c} value={c}>{c}</option>)}
+              {selectableCategories.map(c => <option key={c} value={c}>{c}</option>)}
             </select>
           </div>
 

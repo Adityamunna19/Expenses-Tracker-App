@@ -1,9 +1,23 @@
 import { useState, useEffect } from 'react';
 import { X, Loader2, Sparkles, Zap, Building2, CreditCard, FileText } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { DEFAULT_EXPENSE_CATEGORIES, resolveMerchantName } from '../utils/financeConfig';
 
 // 👇 1. ADDED editData = null TO PROPS
-export default function AddExpenseModal({ user, onClose, onSuccess, darkMode, API_BASE, accounts = [], prefill = null, budgets = [], analytics = { categories: [] }, editData = null }) {
+export default function AddExpenseModal({
+  user,
+  onClose,
+  onSuccess,
+  darkMode,
+  API_BASE,
+  accounts = [],
+  prefill = null,
+  budgets = [],
+  analytics = { categories: [] },
+  editData = null,
+  categories = [],
+  loanBuckets = [],
+}) {
   
   // 👇 2. UPDATED STATE TO PULL FROM editData FIRST
   const [formData, setFormData] = useState({
@@ -13,6 +27,7 @@ export default function AddExpenseModal({ user, onClose, onSuccess, darkMode, AP
     payment_method: editData?.payment_method || prefill?.payment_mode || 'UPI',
     account_id: editData?.account_id || '',
     to_account_id: editData?.to_account_id || '',
+    loan_account_name: editData?.loan_account_name || prefill?.loan_account_name || '',
     date: editData?.date || prefill?.date || new Date().toISOString().split('T')[0],
     note: editData?.note || '', 
     is_secret: editData?.is_secret || false,
@@ -29,7 +44,11 @@ export default function AddExpenseModal({ user, onClose, onSuccess, darkMode, AP
   const [selectedGoalId, setSelectedGoalId] = useState(editData?.goal_id || '');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const categories = ["Food", "Transport","Groceries","Cafe","Coffee", "Bills", "Shopping", "Entertainment", "Savings", "Goals", "Credit Card Payment","Beauty","Travel","Medicines","Family Maintenance","Fancy","Repairs","Subscription","Other"];
+  const categoryOptions = categories.length > 0 ? categories : DEFAULT_EXPENSE_CATEGORIES;
+  const selectableCategories =
+    formData.category && !categoryOptions.some((category) => category.toLowerCase() === formData.category.toLowerCase())
+      ? [...categoryOptions, formData.category]
+      : categoryOptions;
   const paymentMethods = ["UPI", "Cash", "Card", "Bank Transfer", "NetBanking"];
 
   useEffect(() => {
@@ -53,6 +72,7 @@ export default function AddExpenseModal({ user, onClose, onSuccess, darkMode, AP
         payment_method: editData.payment_method || 'UPI',
         account_id: editData.account_id || '',
         to_account_id: editData.to_account_id || '',
+        loan_account_name: editData.loan_account_name || '',
         date: editData.date || new Date().toISOString().split('T')[0],
         note: editData.note || '',
         is_secret: editData.is_secret || false,
@@ -77,6 +97,7 @@ export default function AddExpenseModal({ user, onClose, onSuccess, darkMode, AP
         note: prefill.note || prev.note,
         account_id: prefill.account_id || prev.account_id,
         to_account_id: prefill.to_account_id || prev.to_account_id,
+        loan_account_name: prefill.loan_account_name || prev.loan_account_name,
         is_subscription: typeof prefill.is_subscription === 'boolean' ? prefill.is_subscription : prev.is_subscription
       }));
     }
@@ -109,7 +130,6 @@ export default function AddExpenseModal({ user, onClose, onSuccess, darkMode, AP
   }, [formData.category, accounts, prefill]);
 
   const localPreParse = (text, availableGoals, availableAccounts) => {
-    // ... (Your existing localPreParse logic stays exactly the same)
     let t = text.toLowerCase().trim();
     const amountMatch = t.match(/\d+(\.\d+)?/);
     if (!amountMatch) return null; 
@@ -146,29 +166,37 @@ export default function AddExpenseModal({ user, onClose, onSuccess, darkMode, AP
       }
     }
 
+    const dictionary = {
+      "Food": ["kfc", "swiggy", "zomato", "tea", "coffee", "dinner", "lunch", "starbucks", "grocery", "blinkit", "zepto", "tiffin", "breakfast"],
+      "Transport": ["uber", "ola", "auto", "metro", "petrol", "bus", "train", "flight", "cab", "rapido"],
+      "Bills": ["wifi", "electricity", "recharge", "airtel", "jio", "rent", "water", "bill"],
+      "Shopping": ["amazon", "flipkart", "zara", "myntra", "clothes", "shoes", "mall"],
+      "Entertainment": ["netflix", "movie", "spotify", "cinema", "prime", "game"],
+      "Savings": ["sip", "stocks", "fixed deposit", "fd", "gold", "mutual fund", "mf", "groww"],
+      "Smoking": ["smoking", "cigarette", "cigarettes", "tobacco"],
+      "Drinking": ["drinking", "drink", "beer", "liquor", "alcohol", "whisky", "wine"],
+      "Credit Card Payment": ["cc payment", "credit card payment", "card payment", "bill payment", "pay cc", "pay card"],
+      "Subscription": ["netflix", "spotify", "prime video", "youtube premium", "hotstar", "disney+", "icloud", "gym", "subscription", "membership", "adobe", "canva pro", "notion plus", "github copilot", "chatgpt plus", "midjourney", "hulu", "hbo max", "apple music", "youtube music", "audible"],
+    };
+
+    categoryOptions.forEach((category) => {
+      if (dictionary[category]) return;
+      const lowered = category.toLowerCase();
+      dictionary[category] = lowered.split(/\s+/).filter(Boolean);
+    });
+
     for (const goal of availableGoals) {
       if (cleanText.includes(goal.title.toLowerCase())) {
         return { title: `Saved for ${goal.title}`, amount, category: "Goals", linked_goal_id: goal.id, account_id, payment_method };
       }
     }
 
-    const dictionary = {
-      "Food": ["kfc", "swiggy", "zomato", "tea", "coffee", "dinner", "lunch", "starbucks", "grocery", "blinkit", "zepto"],
-      "Transport": ["uber", "ola", "auto", "metro", "petrol", "bus", "train", "flight", "cab", "rapido"],
-      "Bills": ["wifi", "electricity", "recharge", "airtel", "jio", "rent", "water", "bill"],
-      "Shopping": ["amazon", "flipkart", "zara", "myntra", "clothes", "shoes", "mall"],
-      "Entertainment": ["netflix", "movie", "spotify", "cinema", "prime", "game"],
-      "Savings": ["sip", "stocks", "fixed deposit", "fd", "gold", "mutual fund", "mf"],
-      "Credit Card Payment": ["cc payment", "credit card payment", "card payment", "bill payment", "pay cc", "pay card"],
-      "Subscription": ["netflix", "spotify", "prime video", "youtube premium", "hotstar", "disney+", "icloud", "gym", "subscription", "membership", "adobe", "canva pro", "notion plus", "github copilot", "chatgpt plus", "midjourney", "hulu", "hbo max", "apple music", "youtube music", "audible"]
-    };
-
     for (const [cat, keywords] of Object.entries(dictionary)) {
       const matchedWord = keywords.find(kw => cleanText.includes(kw));
       if (matchedWord) {
         let title = cleanText.replace(/^(for|on|to|at|via|using)\s+/i, '').trim();
         if (title.length < 2) title = matchedWord; 
-        title = title.charAt(0).toUpperCase() + title.slice(1); 
+        title = resolveMerchantName(title); 
         return { title, amount, category: cat, linked_goal_id: null, account_id, payment_method };
       }
     }
@@ -184,7 +212,7 @@ export default function AddExpenseModal({ user, onClose, onSuccess, darkMode, AP
       if (localResult) {
         setFormData(prev => ({
           ...prev, 
-          title: localResult.title, 
+          title: resolveMerchantName(localResult.title), 
           amount: localResult.amount, 
           category: localResult.category,
           account_id: localResult.account_id || prev.account_id, 
@@ -207,14 +235,14 @@ export default function AddExpenseModal({ user, onClose, onSuccess, darkMode, AP
         const parsed = await res.json();
         setFormData(prev => ({ 
           ...prev, 
-          title: parsed.title, 
+          title: resolveMerchantName(parsed.title || prev.title), 
           amount: parsed.amount, 
           category: parsed.category 
         }));
         if (parsed.category === "Goals" && parsed.linked_goal_id) setSelectedGoalId(parsed.linked_goal_id);
         toast.success("AI parsed!", { id: loadingToast });
         setSmartInput('');
-      } catch (err) { 
+      } catch { 
         toast.error("AI Error", { id: loadingToast }); 
       } finally { 
         setIsSmartLoading(false); 
@@ -224,42 +252,40 @@ export default function AddExpenseModal({ user, onClose, onSuccess, darkMode, AP
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    const isCardPaymentTransfer = formData.category === 'Credit Card Payment';
+    const isCardPaymentExpense = formData.category === 'Credit Card Payment';
 
-    if (isCardPaymentTransfer) {
+    if (isCardPaymentExpense) {
       if (!formData.amount || !formData.account_id || !formData.to_account_id) {
         return toast.error("Select the source bank, target card, and amount");
       }
     } else if (!formData.title || !formData.amount) {
       return toast.error("Merchant and Amount are required");
     }
+
+    if (formData.is_debt_payment && !formData.loan_account_name) {
+      return toast.error("Choose a debt account for this repayment");
+    }
     
     setIsSubmitting(true);
     try {
       const expenseAmount = parseFloat(formData.amount);
-      const payload = isCardPaymentTransfer
-        ? {
-            title: `Transfer: ${accounts.find((a) => a.id === formData.account_id)?.name || 'Bank'} → ${accounts.find((a) => a.id === formData.to_account_id)?.name || 'Card'}`,
-            amount: expenseAmount,
-            category: 'CC Payment',
-            payment_method: formData.payment_method,
-            account_id: formData.account_id || null,
-            to_account_id: formData.to_account_id || null,
-            date: formData.date,
-            note: formData.note,
-            type: 'transfer',
-            user_id: user?.id
-          }
-        : { 
-            ...formData, 
-            amount: expenseAmount, 
-            user_id: user?.id, 
-            goal_id: formData.category === "Goals" ? selectedGoalId : null,
-            account_id: formData.account_id || null,
-            expected_recovery_date: formData.expected_recovery_date || null
-          };
+      const payload = {
+        ...formData,
+        title: isCardPaymentExpense
+          ? `Credit Card Payment: ${accounts.find((a) => a.id === formData.to_account_id)?.name || 'Card'}`
+          : resolveMerchantName(formData.title),
+        amount: expenseAmount,
+        user_id: user?.id,
+        goal_id: formData.category === "Goals" ? selectedGoalId : null,
+        account_id: formData.account_id || null,
+        to_account_id: isCardPaymentExpense ? formData.to_account_id || null : formData.to_account_id || null,
+        loan_account_name: formData.is_debt_payment ? resolveMerchantName(formData.loan_account_name) : null,
+        expected_recovery_date: formData.expected_recovery_date || null,
+        is_card_payment: isCardPaymentExpense,
+        type: 'debit',
+      };
 
-      const isEditing = Boolean(editData && !isCardPaymentTransfer);
+      const isEditing = Boolean(editData);
       const url = isEditing ? `${API_BASE}/transactions/${editData.id}` : `${API_BASE}/transactions`;
 
       let res = await fetch(url, {
@@ -303,7 +329,7 @@ export default function AddExpenseModal({ user, onClose, onSuccess, darkMode, AP
       }
 
       // Impact Warning Logic (Only run if it's a NEW transaction, not an edit)
-      if (!editData && !isCardPaymentTransfer) {
+      if (!editData && !isCardPaymentExpense) {
         const targetBudget = budgets.find(b => b.category.toLowerCase() === formData.category.toLowerCase());
         
         if (targetBudget) {
@@ -330,16 +356,16 @@ export default function AddExpenseModal({ user, onClose, onSuccess, darkMode, AP
         } else {
           toast.success("Expense recorded securely!");
         }
-      } else if (!isCardPaymentTransfer) {
+      } else if (!isCardPaymentExpense) {
         // Simple success for an Edit
         toast.success("Record amended securely!");
-      } else if (isCardPaymentTransfer) {
-        toast.success("Card payment recorded!");
+      } else if (isCardPaymentExpense) {
+        toast.success("Card payment recorded as an expense!");
       }
 
       await onSuccess(normalizedTransaction.id ? normalizedTransaction : null);
       onClose();
-    } catch (err) { 
+    } catch { 
       toast.error("Failed to save"); 
     } finally { 
       setIsSubmitting(false); 
@@ -402,7 +428,7 @@ export default function AddExpenseModal({ user, onClose, onSuccess, darkMode, AP
                 onChange={(e) => setFormData({...formData, category: e.target.value})} 
                 className={inputClass}
               >
-                {categories.map(cat => <option key={cat} value={cat}>{cat}</option>)}
+                {selectableCategories.map(cat => <option key={cat} value={cat}>{cat}</option>)}
               </select>
             </div>
           </div>
@@ -578,6 +604,27 @@ export default function AddExpenseModal({ user, onClose, onSuccess, darkMode, AP
               <span className="text-[10px] font-black text-violet-600 uppercase tracking-widest">Recurring / Subscription?</span>
             </label>
           </div>
+
+          {formData.is_debt_payment && (
+            <div className="animate-in slide-in-from-top-2">
+              <label className={`${labelClass} flex items-center gap-2`}>
+                <FileText size={16} className="opacity-50" />
+                Debt Account / Loan Name
+              </label>
+              <input
+                list="loan-buckets"
+                placeholder="e.g. Personal Loan, Gold Loan"
+                value={formData.loan_account_name}
+                onChange={(e) => setFormData({ ...formData, loan_account_name: e.target.value })}
+                className={inputClass}
+              />
+              <datalist id="loan-buckets">
+                {loanBuckets.map((bucket) => (
+                  <option key={bucket} value={bucket} />
+                ))}
+              </datalist>
+            </div>
+          )}
 
           <button 
             type="submit" 

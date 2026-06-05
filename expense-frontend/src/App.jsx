@@ -1,5 +1,6 @@
-import { useState, useEffect } from 'react';
-import { AuthProvider, useAuth } from './context/AuthContext';
+import { useState, useEffect, useMemo } from 'react';
+import { AuthProvider } from './context/AuthContext.jsx';
+import { useAuth } from './context/useAuth';
 import Auth from './components/Auth';
 import Navbar from './components/Navbar';
 import Dashboard from './components/Dashboard';
@@ -17,12 +18,25 @@ import UserProfilePane from './components/UserProfilePane';
 import AddLoanModal from './components/AddLoanModal';
 import EMICalculatorModal from './components/EMICalculatorModal';
 import SetBudgetModal from './components/SetBudgetModal';
+import DiarySection from './components/DiarySection';
 import { Toaster } from 'react-hot-toast';
 import toast from 'react-hot-toast';
 import { Sun, Moon } from 'lucide-react';
 import { getCardBalanceSnapshot } from './utils';
 import { requestForToken, onMessageListener } from './firebaseSetup';
 import Subscriptions from './components/Subscriptions';
+import {
+  addCustomCategory,
+  getBudgetCategories,
+  getExpenseCategories,
+  getIncomeCategories,
+  getLoanBucketName,
+  getUserDisplayName,
+  loadCategoryPreferences,
+  removeCustomCategory,
+  resolveMerchantName,
+  saveCategoryPreferences,
+} from './utils/financeConfig';
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || 'https://expenses-tracker-app-backend-main.onrender.com';
 
@@ -38,12 +52,44 @@ function MainApp() {
   const [stats, setStats] = useState({ total_in: 0, total_out: 0, net: 0 });
   const [analytics, setAnalytics] = useState({ categories: [] });
   const [accounts, setAccounts] = useState([]);
+  const [categoryRefresh, setCategoryRefresh] = useState(0);
 
   const [filterMonth, setFilterMonth] = useState(new Date().getMonth() + 1);
   const [filterYear, setFilterYear] = useState(new Date().getFullYear());
 
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [budgets, setBudgets] = useState([]);
+
+  const requestHeaders = useMemo(() => {
+    const headers = { 'Content-Type': 'application/json' };
+    if (user?.id) {
+      headers['X-User-ID'] = user.id;
+    }
+    return headers;
+  }, [user]);
+
+  const categoryPreferences = useMemo(() => loadCategoryPreferences(user), [user, categoryRefresh]);
+
+  const expenseCategories = getExpenseCategories(user, categoryPreferences);
+  const incomeCategories = getIncomeCategories(user, categoryPreferences);
+  const budgetCategories = getBudgetCategories(user, categoryPreferences);
+  const loanBucketNames = Array.from(
+    new Set(
+      transactions
+        .filter((tx) => tx?.is_debt_payment || tx?.loan_account_name || tx?.loan_bucket || tx?.debt_account_name || tx?.loan_name)
+        .map((tx) => getLoanBucketName(tx))
+        .filter(Boolean)
+    )
+  );
+
+  const updateCategoryPreferences = (updater) => {
+    if (!user?.id) return;
+
+    const currentPreferences = loadCategoryPreferences(user);
+    const nextPreferences = typeof updater === 'function' ? updater(currentPreferences) : updater;
+    saveCategoryPreferences(user, nextPreferences);
+    setCategoryRefresh((version) => version + 1);
+  };
 
   const handleAddWithScreenshot = async (file) => {
     const loadingToast = toast.loading("AI Vision reading screenshot...");
@@ -62,22 +108,16 @@ function MainApp() {
         
         // 👇 SMART ROUTING: Check if the AI detected income or expense
         const detectedType = data.type === 'credit' ? 'credit' : 'debit';
-setActiveModal({ type: detectedType, prefill: data });
-        
         setActiveModal({ type: detectedType, prefill: data });
         toast.success("Vision extraction complete!", { id: loadingToast });
-      } catch (err) {
+      } catch {
         toast.error("Vision failed to read image", { id: loadingToast });
       }
     };
   };
 
   const getHeaders = () => {
-    const headers = { 'Content-Type': 'application/json' };
-    if (user?.id) {
-      headers['X-User-ID'] = user.id;
-    }
-    return headers;
+    return requestHeaders;
   };
 
   const fetchData = async () => {
@@ -109,8 +149,8 @@ setActiveModal({ type: detectedType, prefill: data });
       setAccounts(Array.isArray(accData) ? accData : []);
       setBudgets(Array.isArray(budgetData) ? budgetData : []);
 
-    } catch (err) { 
-      console.error("Data Fetch Error:", err); 
+    } catch (error) { 
+      console.error("Data Fetch Error:", error); 
     }
   };
 
@@ -178,8 +218,9 @@ setActiveModal({ type: detectedType, prefill: data });
   }, [user, darkMode, API_BASE]);
 
   const filteredTransactions = transactions.filter(tx => 
-    tx.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    tx.category.toLowerCase().includes(searchQuery.toLowerCase())
+    String(tx.title || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+    resolveMerchantName(tx.title).toLowerCase().includes(searchQuery.toLowerCase()) ||
+    String(tx.category || '').toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   const sortedTransactions = [...transactions].sort((a, b) => {
@@ -216,7 +257,7 @@ setActiveModal({ type: detectedType, prefill: data });
       <Navbar 
         currentTab={currentTab} 
         setCurrentTab={setCurrentTab} 
-        user={{ name: user.user_metadata?.first_name ? `${user.user_metadata.first_name} ${user.user_metadata.last_name || ''}`.trim() : (user.email?.split('@')[0] || 'Pilot') }} 
+        user={{ name: getUserDisplayName(user) || (user.email?.split('@')[0] || 'Pilot') }} 
         darkMode={darkMode}
         setDarkMode={setDarkMode}
         onOpenProfile={() => setIsProfileOpen(true)} 
@@ -224,7 +265,11 @@ setActiveModal({ type: detectedType, prefill: data });
       />
 
       <main className="max-w-7xl mx-auto mt-6">
-        <FeatureAnnouncement darkMode={darkMode} />
+        <FeatureAnnouncement
+          darkMode={darkMode}
+          userId={user?.id}
+          userName={getUserDisplayName(user) || (user.email?.split('@')[0] || 'Pilot')}
+        />
         
         {currentTab === 'Dashboard' && (
           <Dashboard 
@@ -247,6 +292,7 @@ setActiveModal({ type: detectedType, prefill: data });
             onSetBudget={() => setActiveModal({ type: 'budget' })}
             accounts={accounts}
             totalCCDebt={totalCCDebt}
+            diarySection={<DiarySection user={user} darkMode={darkMode} />}
           />
         )}
         
@@ -273,7 +319,7 @@ setActiveModal({ type: detectedType, prefill: data });
         {currentTab === 'Debts' && <Debts transactions={transactions} darkMode={darkMode} onAddDebt={() => setActiveModal({ type: 'loan' })} onOpenCalculator={() => setActiveModal({ type: 'calculator' })} />}
         {currentTab === 'Recoveries' && <Recoveries transactions={transactions} onSuccess={fetchData} darkMode={darkMode} API_BASE={API_BASE} headers={getHeaders()} />}
         {currentTab === 'Goals' && <Goals darkMode={darkMode} API_BASE={API_BASE} headers={getHeaders()} />}
-        {currentTab === 'Savings' && <Savings darkMode={darkMode} API_BASE={API_BASE} headers={getHeaders()} />}
+        {currentTab === 'Savings' && <Savings darkMode={darkMode} API_BASE={API_BASE} headers={getHeaders()} transactions={transactions} accounts={accounts} />}
         {currentTab === 'Cards' && (
           <CardsPage
             accounts={accounts}
@@ -306,6 +352,15 @@ setActiveModal({ type: detectedType, prefill: data });
             darkMode={darkMode} 
             API_BASE={API_BASE}
             onLogout={signOut}
+            categoryPreferences={categoryPreferences}
+            expenseCategories={expenseCategories}
+            incomeCategories={incomeCategories}
+            onAddCategory={(scope, category) =>
+              updateCategoryPreferences((prev) => addCustomCategory(prev, scope, category, user))
+            }
+            onRemoveCategory={(scope, category) =>
+              updateCategoryPreferences((prev) => removeCustomCategory(prev, scope, category))
+            }
           />
         )}
       </main>
@@ -321,6 +376,8 @@ setActiveModal({ type: detectedType, prefill: data });
           API_BASE={API_BASE} 
           accounts={accounts} 
           budgets={budgets}
+          categories={expenseCategories}
+          loanBuckets={loanBucketNames}
           analytics={analytics}
         />
       )}
@@ -334,19 +391,8 @@ setActiveModal({ type: detectedType, prefill: data });
           onSuccess={handleTransactionSaved} 
           darkMode={darkMode} 
           API_BASE={API_BASE} 
-          accounts={accounts} 
-        />
-      )}
-
-      {activeModal?.type === 'transfer' && (
-        <AddTransferModal
-          user={user}
-          editData={activeModal.editData}
-          onClose={() => setActiveModal(null)}
-          onSuccess={fetchData}
-          darkMode={darkMode}
-          API_BASE={API_BASE}
           accounts={accounts}
+          categories={incomeCategories}
         />
       )}
 
@@ -355,7 +401,7 @@ setActiveModal({ type: detectedType, prefill: data });
       )}
 
       {activeModal?.type === 'budget' && (
-        <SetBudgetModal user={user} onClose={() => setActiveModal(null)} onSuccess={fetchData} darkMode={darkMode} API_BASE={API_BASE} />
+        <SetBudgetModal user={user} onClose={() => setActiveModal(null)} onSuccess={fetchData} darkMode={darkMode} API_BASE={API_BASE} categories={budgetCategories} />
       )}
 
       {currentTab === 'Subscriptions' && (

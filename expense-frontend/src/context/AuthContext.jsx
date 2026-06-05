@@ -1,7 +1,6 @@
-import { createContext, useContext, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { supabase } from '../supabaseClient';
-
-const AuthContext = createContext({});
+import { AuthContext } from './authContext';
 
 const missingSupabaseError = {
   message:
@@ -10,11 +9,10 @@ const missingSupabaseError = {
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(() => !supabase);
 
   useEffect(() => {
     if (!supabase) {
-      setLoading(false);
       return;
     }
 
@@ -51,10 +49,11 @@ export const AuthProvider = ({ children }) => {
       ? supabase.auth.signInWithPassword({ email, password })
       : Promise.resolve({ data: null, error: missingSupabaseError });
 
-  const signOut = () =>
-    supabase
+  const signOut = () => {
+    return supabase
       ? supabase.auth.signOut()
       : Promise.resolve({ error: missingSupabaseError });
+  };
 
   return (
     <AuthContext.Provider value={{ user, signUp, signIn, signOut, loading }}>
@@ -62,5 +61,3 @@ export const AuthProvider = ({ children }) => {
     </AuthContext.Provider>
   );
 };
-
-export const useAuth = () => useContext(AuthContext);
